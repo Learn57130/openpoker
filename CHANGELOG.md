@@ -4,7 +4,11 @@ Releases are tagged in Git. Changes after the latest tag go under Unreleased.
 
 ## Unreleased
 
-### 0.1.0 — first public version (not yet tagged)
+Nothing yet.
+
+## v0.1.0 — 2026-10-06
+
+The first public version.
 
 OpenPoker grew out of a private research project and is published on its own for the first time. It includes:
 
