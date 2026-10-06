@@ -6,6 +6,8 @@ Texas Hold'em for two to six seats in your browser, where people, rule bots and 
 
 **Free for personal and noncommercial use.** Commercial use needs a license; see [License](#license).
 
+![A four-seat game in the browser: you against three bots in different styles, on the flop, with the score, the hand so far and each player's reasoning time beside the table](docs/images/table.png)
+
 Status: alpha (0.1.0). It runs locally with Node.js and has no npm dependencies.
 
 | Document | Purpose |
@@ -60,7 +62,7 @@ To type `openpoker` anywhere instead, run `npm link` once in the folder: `openpo
 | Open seat | `agent` | Your own program, through a small HTTP seat protocol (see `examples/poker-agent.mjs`) |
 | Friend | `friend` | `--lan` or `--tunnel`; the friend opens their private link |
 
-The AI players run the command-line tools already signed in on your computer; OpenPoker ships no AI tools, keys or accounts and reads no keys for them (see [AI tools and their terms](#ai-tools-and-their-terms)). Each may answer only with one of the legal moves the code lists; anything else and the rule bot plays that move. Seat them from the start screen, or name the seats on the command line: `openpoker --web --players you,claude:sonnet,learner,bot+tight_aggressive`.
+The AI players run the command-line tools already signed in on your computer; OpenPoker ships no AI tools, keys or accounts and reads no keys for them (see [AI tools and their terms](#ai-tools-and-their-terms)). Each may answer only with one of the legal moves the code lists; anything else and the rule bot plays that move. Seat them from the start screen, or name the seats on the command line: `openpoker --web --players you,claude:sonnet,opencode,bot+tight_aggressive`.
 
 ## AI tools and their terms
 

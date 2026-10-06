@@ -6,7 +6,7 @@
 
 ## Goal
 
-Friends on the host's Wi-Fi sit at the same table from their own phones or laptops, each seeing only their own cards, next to the host, bots and the AI players. Every game is saved with every player's cards, so the Learner learns from it like any other game; more people means far more hands to learn from than the host can play alone.
+Friends on the host's Wi-Fi sit at the same table from their own phones or laptops, each seeing only their own cards, next to the host, bots and the AI players. Every game is saved in the host's game history like any other.
 
 ## Scope
 
@@ -29,7 +29,7 @@ Friends on the host's Wi-Fi sit at the same table from their own phones or lapto
 ## Acceptance criteria
 
 - Given the table started without `--lan`, when another computer connects, then it cannot (the server listens on this computer only), and the Friend player is unavailable.
-- Given `--lan`, when another computer asks for any address other than the friend's page, the event stream, its seat's state or its seat's action, then it is refused (403); only this computer can start, close or set up games, see `/state`, use personas, history or training, or play an open seat.
+- Given `--lan`, when another computer asks for any address other than the friend's page, the event stream, its seat's state or its seat's action, then it is refused (403); only this computer can start, close or set up games, see `/state`, use personas or the history, or play an open seat.
 - Given a request with no seat key or a wrong one, when it asks for a seat's state or action, then it is refused (401), and nothing tells it which keys exist.
 - Given a friend's state, when it is read, then it shows that friend's own cards and, after a showdown, the cards shown there, and never another player's cards, hand strength or Jev's reasoning before then; the friend's seat is drawn as seat 0.
 - Given a friend's state, when it is read, then it holds nothing from which the deck could be rebuilt (the game's random seed is replaced by a game number) and nothing that is the host's alone: no style notes to other seats, no warnings or error details from the host's computer, no account or model details of the host's AI tools.
