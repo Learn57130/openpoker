@@ -1,0 +1,18 @@
+{
+  "situation": {
+    "game": "two-player poker, my turn to act",
+    "betting_round": "flop (second betting round)",
+    "my_hand_strength": "strong",
+    "my_made_hand": "two pair",
+    "price_to_call": "free, nothing to call",
+    "calling_on_the_numbers": "not applicable, nothing to call",
+    "my_position": "I act last in this round",
+    "stack_depth": "deep",
+    "opponent_this_round": "checked",
+    "opponent_tendencies": {
+      "when_raised": "folds often",
+      "how_often_they_raise": "rarely raises"
+    }
+  },
+  "legal_actions": ["check", "raise_small", "raise_large", "all_in"]
+}

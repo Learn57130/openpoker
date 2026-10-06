@@ -1,0 +1,52 @@
+{
+  "name": "openpoker",
+  "version": "0.1.0",
+  "description": "Texas Hold'em for two to six seats, with play chips only, where people, rule bots and AI agents (Claude, Codex, OpenCode, Jev, or your own program) play each other.",
+  "type": "module",
+  "bin": {
+    "openpoker": "bin/openpoker.mjs"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "examples/",
+    "docs/",
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "CHANGELOG.md",
+    "scripts/",
+    ".claude/skills/"
+  ],
+  "scripts": {
+    "start": "node ./bin/openpoker.mjs --web",
+    "lan": "node ./bin/openpoker.mjs --web --lan",
+    "tunnel": "node ./bin/openpoker.mjs --web --tunnel",
+    "doctor": "node ./bin/openpoker.mjs doctor",
+    "openpoker": "node ./bin/openpoker.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "check": "node --check bin/openpoker.mjs && for file in src/*.mjs src/lib/*.mjs examples/*.mjs; do node --check \"$file\" || exit 1; done && node --test tests/*.test.mjs"
+  },
+  "keywords": [
+    "poker",
+    "texas-holdem",
+    "hold-em",
+    "ai-agents",
+    "llm",
+    "claude",
+    "play-money",
+    "home-game"
+  ],
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Learn57130/openpoker.git"
+  },
+  "homepage": "https://github.com/Learn57130/openpoker#readme",
+  "bugs": {
+    "url": "https://github.com/Learn57130/openpoker/issues"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

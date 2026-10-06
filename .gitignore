@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+# Saved games, personas and Learner policies when --output-dir points inside the project.
+artifacts/
+*.log
+.DS_Store
+
+# The Learner (self-training bot) is a private add-on and never part of this repository.
+addons/learner/

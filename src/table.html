@@ -1,0 +1,3459 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenPoker</title>
+<style>
+  :root {
+    --ink: #08110f;
+    --felt: #114236;
+    --felt-deep: #0a2a22;
+    --brass: #d0aa5c;
+    --brass-dim: #8d7340;
+    --brass-faint: rgba(208, 170, 92, 0.22);
+    --gold: #ffd76a;
+    --gold-pale: #fff1bf;
+    --gold-glow: rgba(255, 215, 106, 0.62);
+    --cream: #f5eedc;
+    --card-ink: #17211e;
+    --red: #b8372b;
+    --hot: #ff6b5b;
+    --text: #ece5d1;
+    --muted: #9aa79f;
+    --display: "Bodoni 72", Didot, "Bodoni MT", "Iowan Old Style", Palatino, Georgia, serif;
+    --label: "Avenir Next Condensed", "Avenir Next", "Gill Sans", "Trebuchet MS", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  /* Dark native controls, and thin brass scrollbars instead of the browser's white ones. */
+  :root { color-scheme: dark; }
+  * { scrollbar-width: thin; scrollbar-color: var(--brass-dim) transparent; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--brass-dim); border-radius: 8px; border: 2px solid transparent; background-clip: padding-box; }
+  ::-webkit-scrollbar-thumb:hover { background-color: var(--brass); }
+  html, body { margin: 0; min-height: 100%; }
+  body {
+    background: radial-gradient(120% 90% at 50% 0%, #13231e 0%, var(--ink) 60%);
+    color: var(--text);
+    font-family: var(--label);
+    font-variant-numeric: tabular-nums lining-nums;
+    padding: 18px 22px 28px;
+  }
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; opacity: 0.16; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  button, select { font: inherit; color: inherit; cursor: pointer; }
+  button:disabled { cursor: not-allowed; }
+  .caps { text-transform: uppercase; letter-spacing: 0.18em; font-size: 0.72rem; color: var(--muted); }
+  [hidden] { display: none !important; }
+
+  header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .mark { font-family: var(--display); font-size: 1.7rem; letter-spacing: 0.04em; line-height: 1; }
+  .mark em { color: var(--brass); font-style: italic; }
+  .rule { flex: 1; height: 1px; min-width: 24px; background: linear-gradient(90deg, var(--brass-dim), transparent); }
+  .current { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .ghost { background: transparent; border: 1px solid var(--brass-dim); padding: 7px 14px; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.72rem; }
+  .ghost:hover { background: var(--brass-faint); }
+
+  /* Start screen */
+  .setup {
+    position: fixed; inset: 0; z-index: 20; display: flex; padding: 22px; overflow: auto;
+    background: radial-gradient(120% 90% at 50% 0%, rgba(19, 35, 30, 0.97) 0%, rgba(8, 17, 15, 0.985) 60%);
+  }
+  /* Auto margins centre the card but never push its top out of reach when it is taller than the window. */
+  .setup-card { width: min(780px, 100%); margin: auto; display: grid; gap: 15px; }
+  .setup-card h1 { margin: 0; font: 2.3rem/1.05 var(--display); }
+  .setup-card h1 em { color: var(--brass); }
+  .modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .mode {
+    text-align: left; background: rgba(10, 26, 22, 0.7); border: 1px solid var(--brass-dim); padding: 18px 18px 16px;
+    display: grid; gap: 6px; transition: transform 0.14s ease, border-color 0.14s ease, background 0.14s ease;
+    animation: rise 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 70ms);
+  }
+  .mode:hover, .mode[aria-pressed="true"] { border-color: var(--brass); background: rgba(208, 170, 92, 0.12); transform: translateY(-3px); }
+  .mode strong { font: italic 1.45rem var(--display); color: var(--text); white-space: nowrap; }
+  .mode strong i { color: var(--brass); font-style: normal; font-size: 0.95rem; letter-spacing: 0.16em; text-transform: uppercase; font-family: var(--label); margin: 0 6px; }
+  .mode span { color: var(--muted); font-size: 0.88rem; line-height: 1.4; }
+  /* Once a mode is chosen the four cards fold down to a strip so the seats fit on one screen. */
+  .modes.picked { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .modes.picked .mode { padding: 10px 12px 9px; animation: none; }
+  .modes.picked .mode:hover, .modes.picked .mode[aria-pressed="true"] { transform: none; }
+  .modes.picked .mode[aria-pressed="true"] { box-shadow: inset 0 -3px 0 var(--brass); }
+  .modes.picked .mode strong { font-size: 1.02rem; }
+  .modes.picked .mode strong i { font-size: 0.66rem; margin: 0 4px; }
+  .modes.picked .mode span { display: none; }
+  @media (max-width: 700px) { .modes.picked { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 520px) { .modes { grid-template-columns: 1fr; } }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+  .config { display: grid; gap: 14px; border-top: 1px solid var(--brass-faint); padding-top: 14px; }
+  .dials { display: flex; gap: 12px 30px; flex-wrap: wrap; }
+  .dial { display: grid; gap: 5px; }
+  .seg { display: inline-flex; }
+  .seg button {
+    background: var(--ink); border: 1px solid var(--brass-dim); padding: 6px 12px 5px; min-width: 40px; margin-left: -1px;
+    text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.76rem;
+  }
+  .seg button:first-child { margin-left: 0; }
+  .seg button:hover { background: var(--brass-faint); }
+  .seg button[aria-pressed="true"] { background: var(--brass); border-color: var(--brass); color: var(--ink); font-weight: 600; position: relative; }
+  .rows { display: grid; gap: 7px; }
+  .row { display: grid; grid-template-columns: 196px minmax(150px, 200px) minmax(0, 250px) auto; gap: 10px; align-items: center; position: relative; }
+  .style-line { grid-column: 2 / -1; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: -2px 0 6px; }
+  .style-line select { flex: 0 0 230px; width: 230px; }
+  .style-line input { flex: 1 1 220px; min-width: 0; background: var(--ink); border: 1px solid var(--brass-dim); color: var(--text); padding: 7px 11px; font: 0.82rem var(--label); border-radius: 0; }
+  .style-line input::placeholder { color: var(--muted); }
+  .style-line .hint { flex: 1 1 220px; }
+  .reason { display: inline-flex; align-items: center; gap: 9px; background: transparent; border: 1px solid var(--brass-dim); padding: 6px 12px; white-space: nowrap; }
+  .reason b { min-width: 2.2em; text-align: center; padding: 1px 7px; font: 600 0.74rem var(--label); letter-spacing: 0.12em; text-transform: uppercase; background: var(--brass); color: var(--ink); }
+  .reason.off b { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--brass-dim); }
+  .reason:hover { background: var(--brass-faint); }
+  .row:focus-within { z-index: 5; }
+  .row .where { display: flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+  .row .where b { font: italic 1.12rem var(--display); color: var(--text); text-transform: none; letter-spacing: 0; }
+  @media (max-width: 600px) { .row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .row .where { grid-column: 1 / -1; } }
+  .fixed { border: 1px solid var(--brass-faint); padding: 7px 11px; text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.76rem; }
+  select {
+    width: 100%; background: var(--ink); border: 1px solid var(--brass-dim); padding: 7px 30px 7px 11px;
+    text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.76rem; appearance: none; border-radius: 0;
+    background-image: linear-gradient(45deg, transparent 50%, var(--brass) 50%), linear-gradient(135deg, var(--brass) 50%, transparent 50%);
+    background-position: calc(100% - 15px) 55%, calc(100% - 10px) 55%; background-size: 5px 5px; background-repeat: no-repeat;
+  }
+  /* Model box: the suggestion list belongs to the same box as the input, so it opens exactly under it. */
+  .combo { position: relative; }
+  .combo input {
+    display: block; width: 100%; background: var(--ink); border: 1px solid var(--brass-dim); color: var(--text);
+    padding: 7px 11px; font: 0.8rem var(--mono); border-radius: 0;
+  }
+  .combo input::placeholder { color: var(--muted); }
+  .combo input:focus { outline: none; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
+  .combo input.bad { border-color: var(--red); box-shadow: 0 0 0 1px var(--red); }
+  .suggest {
+    position: absolute; left: 0; right: 0; top: 100%; z-index: 30; margin: 3px 0 0; padding: 3px 0; list-style: none;
+    max-height: 220px; overflow: auto; background: #0b1714; border: 1px solid var(--brass);
+    box-shadow: 0 16px 34px rgba(0, 0, 0, 0.65); font: 0.8rem var(--mono);
+  }
+  .combo.up .suggest { top: auto; bottom: 100%; margin: 0 0 3px; }
+  .suggest li { padding: 6px 11px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .suggest li small { color: var(--muted); font: 0.74rem var(--label); letter-spacing: 0.04em; margin-left: 8px; }
+  .suggest li:hover, .suggest li[aria-selected="true"] { background: var(--brass); color: var(--ink); }
+  .suggest li:hover small, .suggest li[aria-selected="true"] small { color: var(--ink); }
+  .suggest li.none { color: var(--muted); cursor: default; font: 0.78rem var(--label); white-space: normal; }
+  .suggest li.none:hover { background: transparent; color: var(--muted); }
+  .notes { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; color: var(--muted); font-size: 0.8rem; line-height: 1.45; }
+  .notes li { padding-left: 14px; position: relative; }
+  .notes li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 6px; height: 1px; background: var(--brass); }
+  .setup-foot { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .need { color: #f0c58f; font-size: 0.82rem; }
+  .primary { background: var(--brass); color: var(--ink); border: 1px solid var(--brass); padding: 9px 18px 8px; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.78rem; font-weight: 600; }
+  .primary:hover { background: #e3c07a; }
+  .primary:disabled { background: transparent; color: var(--brass-dim); border-color: var(--brass-dim); }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 22px; align-items: start; }
+  @media (max-width: 1060px) {
+    main { grid-template-columns: minmax(0, 1fr); }
+    aside { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); align-items: start; }
+  }
+
+  /*
+   * The table. Everything inside .stage is measured in em and the em follows the width of the
+   * column, so seats, cards and chips shrink together and keep their places on the oval.
+   */
+  .stage-wrap { container-type: inline-size; padding: 12px 0 14px; }
+  .stage {
+    position: relative; margin: 0 auto;
+    font-size: 16px; font-size: clamp(13px, 2.174cqw, 20px);
+    width: min(100%, max(46em, calc((100vh - 310px) * 1.5)));
+    min-width: 46em; aspect-ratio: 3 / 2;
+  }
+  .felt {
+    position: absolute; inset: 2.3em 2.6em 3.4em; border-radius: 999px;
+    background:
+      radial-gradient(70% 60% at 50% 45%, rgba(255, 255, 255, 0.07), transparent 70%),
+      radial-gradient(100% 100% at 50% 50%, var(--felt) 0%, var(--felt-deep) 78%);
+    border: 1px solid var(--brass);
+    box-shadow: 0 0 0 0.56em #0c1c18, 0 0 0 calc(0.56em + 1px) var(--brass-dim), 0 1.8em 3.6em rgba(0, 0, 0, 0.55), inset 0 0 4.4em rgba(0, 0, 0, 0.45);
+  }
+  .felt::after {
+    content: ""; position: absolute; inset: 0.85em; border-radius: inherit; pointer-events: none;
+    border: 1px dashed rgba(208, 170, 92, 0.28);
+  }
+  .middle { position: absolute; left: 50%; top: 46.5%; transform: translate(-50%, -50%); z-index: 1; display: grid; justify-items: center; gap: 0.4em; }
+  .board { --cs: 0.77; display: flex; gap: 0.35em; }
+  .slot { font-size: calc(var(--cs, 1) * 1em); width: 3.9em; height: 5.55em; border-radius: 0.42em; border: 1px dashed rgba(208, 170, 92, 0.3); flex: none; }
+  .pot { font-family: var(--display); font-size: 1.4em; line-height: 1.15; white-space: nowrap; }
+  .pot span { color: var(--brass); }
+
+  .card {
+    font-size: calc(var(--cs, 1) * 1em);
+    width: 3.9em; height: 5.55em; border-radius: 0.42em; position: relative; flex: none;
+    background: linear-gradient(160deg, #fffaf0, var(--cream) 60%, #e6dcc2);
+    color: var(--card-ink); box-shadow: 0 0.38em 0.9em rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+    font-family: var(--display);
+  }
+  .card.red { color: var(--red); }
+  .card .corner { position: absolute; top: 0.28em; left: 0.4em; line-height: 0.95; text-align: center; font-size: 1.14em; font-weight: 700; }
+  .card .corner i { display: block; font-style: normal; font-size: 0.76em; }
+  .card .pip { position: absolute; right: 0.17em; bottom: 0.04em; font-size: 2.4em; line-height: 1; opacity: 0.92; }
+  .card.back, .card.opening::after {
+    background:
+      repeating-linear-gradient(45deg, transparent 0 0.36em, rgba(208, 170, 92, 0.5) 0.36em 0.43em),
+      repeating-linear-gradient(-45deg, transparent 0 0.36em, rgba(208, 170, 92, 0.5) 0.36em 0.43em),
+      #5c1d18;
+  }
+  .card.back { box-shadow: 0 0.38em 0.9em rgba(0, 0, 0, 0.45), inset 0 0 0 0.24em #5c1d18, inset 0 0 0 0.3em var(--brass); }
+  /*
+   * A new card slides in. A face card arrives face down and then turns over (opens); a hidden hand
+   * shown at a showdown only turns over. The slide moves translate/rotate/scale and the turn moves
+   * transform, so the two run on one card without overriding each other.
+   */
+  .card.fresh { animation: deal 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) var(--deal-delay, 0ms) both; }
+  .card.opening { animation: open-card 0.46s linear var(--open-delay, 0ms) both; }
+  .card.fresh.opening { animation: deal 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) var(--deal-delay, 0ms) both, open-card 0.46s linear var(--open-delay, 0ms) both; }
+  .card.opening::after {
+    content: ""; position: absolute; inset: 0; z-index: 1; border-radius: inherit;
+    box-shadow: inset 0 0 0 0.24em #5c1d18, inset 0 0 0 0.3em var(--brass);
+    animation: open-back 0.46s linear var(--open-delay, 0ms) both;
+  }
+  @keyframes deal { from { opacity: 0; translate: 0 -1.6em; rotate: -7deg; scale: 0.92; } to { opacity: 1; translate: none; rotate: none; scale: none; } }
+  /* The turn is split at its edge-on midpoint, where the back gives way to the face. */
+  @keyframes open-card {
+    0% { transform: perspective(26em) rotateY(180deg); animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45); }
+    50% { transform: perspective(26em) translateY(-0.3em) rotateY(90deg); animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1); }
+    100% { transform: perspective(26em) rotateY(0deg); }
+  }
+  @keyframes open-back { 0% { visibility: visible; } 50%, 100% { visibility: hidden; } }
+
+  /*
+   * Seats. JS gives each seat its angle on the oval as --c (cosine) and --s (sine), and the point
+   * on the stage edge as --x/--y. The translate keeps the seat's outer edge on that point, so a
+   * seat of any size stays inside the stage. Bets and alerts reuse --c/--s to step from the seat
+   * toward the centre of the table.
+   */
+  .seats { position: absolute; inset: 0; z-index: 2; }
+  .seat {
+    --cs: 0.7;
+    position: absolute; left: var(--x, 50%); top: var(--y, 100%); z-index: 2; width: 8.8em;
+    display: flex; flex-direction: column; align-items: center; gap: 0.32em;
+    transform: translate(calc(-50% * (1 + var(--c, 0))), calc(-50% * (1 + var(--s, 1))));
+    transition: opacity 0.35s ease, filter 0.35s ease;
+  }
+  .seat.hero { --cs: 1; width: 12.6em; }
+  .seat.roomy { --cs: 0.84; width: 10.6em; }
+  .seat.flip { flex-direction: column-reverse; }
+  .seat.speaking { z-index: 6; }
+  .hole { position: relative; width: 100%; display: flex; justify-content: center; min-height: calc(var(--cs) * 5.55em); }
+  .cards { display: flex; gap: calc(var(--cs) * 0.5em); transition: opacity 0.3s ease, filter 0.3s ease; }
+  /* Dealer button and blind markers stack beside the cards, on the side away from the centre of the table. */
+  .pins { position: absolute; left: 0; bottom: 0.15em; display: flex; flex-direction: column-reverse; gap: 0.2em; font-size: 0.6em; }
+  .seat.east .pins { left: auto; right: 0; }
+  .hero .pins, .roomy .pins { font-size: 0.7em; }
+  .pin {
+    width: 1.8em; height: 1.8em; border-radius: 50%; display: grid; place-items: center;
+    font-weight: 700; letter-spacing: 0.02em; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
+  }
+  .pin.dealer { background: radial-gradient(circle at 35% 30%, #f1d596, var(--brass) 60%); color: var(--ink); }
+  .pin.blind { background: #0c1c18; color: var(--brass); border: 1px solid var(--brass-dim); }
+  .stamp {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%) rotate(-7deg); z-index: 2;
+    padding: 0.18em 0.6em 0.12em; font-size: 0.64em; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; white-space: nowrap;
+    color: var(--muted); border: 1px solid currentColor; background: rgba(8, 17, 15, 0.86);
+  }
+  .stamp:empty { display: none; }
+  .seat.allin .stamp { color: var(--cream); background: var(--red); border-color: rgba(245, 238, 220, 0.55); box-shadow: 0 0.3em 0.8em rgba(0, 0, 0, 0.5); }
+  .handname {
+    position: absolute; left: 50%; bottom: -0.7em; transform: translateX(-50%); z-index: 2; max-width: 100%;
+    padding: 0.16em 0.7em 0.1em; font-size: 0.58em; letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap;
+    background: rgba(8, 17, 15, 0.92); border: 1px solid var(--brass-faint); color: var(--text);
+  }
+  .hero .handname { font-size: 0.68em; }
+  .handname:empty { display: none; }
+  .plate {
+    position: relative; width: 100%; padding: 0.26em 0.55em 0.32em; text-align: center;
+    background: linear-gradient(180deg, rgba(16, 36, 30, 0.97), rgba(7, 17, 14, 0.97));
+    border: 1px solid var(--brass-dim); box-shadow: 0 0.5em 1em rgba(0, 0, 0, 0.5);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.3s ease;
+  }
+  .name { font: italic 1em/1.25 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hero .name { font-size: 1.22em; }
+  .line { display: flex; justify-content: center; align-items: baseline; gap: 0.6em; font-size: 0.8em; line-height: 1.3; white-space: nowrap; }
+  .hero .line { font-size: 0.9em; }
+  .stack { color: var(--brass); letter-spacing: 0.03em; }
+  .stack small { color: var(--muted); letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.68em; margin-left: 0.4em; }
+  .seat:not(.hero) .stack small { display: none; }
+  .avg { color: var(--muted); font-size: 0.88em; }
+  .plate .style { display: block; color: var(--brass); font: italic 0.9em var(--display); letter-spacing: 0; text-transform: none; }
+  .plate .style:empty { display: none; }
+  .avg:empty { display: none; }
+
+  .seat.acting .plate { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass), 0 0 1.3em rgba(208, 170, 92, 0.5), 0 0.5em 1em rgba(0, 0, 0, 0.5); }
+  .seat.acting .name { color: #f6e2ac; }
+  .seat.folded .cards { opacity: 0.28; filter: grayscale(1); }
+  .seat.folded .plate, .seat.out .plate { opacity: 0.6; }
+
+  /* The tag clipped to the outer edge of a plate: the turn clock, the chips won, or the winner's ribbon. */
+  .tab {
+    position: absolute; left: 50%; top: 100%; transform: translate(-50%, -22%); z-index: 3; display: none; align-items: center;
+    padding: 0.14em 0.65em 0.1em; white-space: nowrap; font-size: 0.78em; font-weight: 600; letter-spacing: 0.05em; line-height: 1.35;
+    background: var(--ink); border: 1px solid var(--brass); color: var(--text); box-shadow: 0 0.3em 0.7em rgba(0, 0, 0, 0.55);
+  }
+  .seat.flip .tab { top: 0; transform: translate(-50%, -78%); }
+  /* The same deadline as a bar along the outer edge of the plate: it shortens as the time runs out. */
+  .fuse { position: absolute; left: 0; bottom: -1px; height: 3px; width: 0; background: var(--brass); box-shadow: 0 0 0.5em rgba(208, 170, 92, 0.8); display: none; }
+  .seat.flip .fuse { bottom: auto; top: -1px; }
+  .seat.acting .fuse.lit { display: block; }
+  .fuse.hot { background: var(--hot); box-shadow: 0 0 0.6em rgba(255, 107, 91, 0.9); }
+  .tab.ticking, .tab.gain, .tab.ribbon { display: flex; }
+  .tab:not(.ticking) .clock, .tab.ticking .prize { display: none; }
+  .clock { display: flex; align-items: center; gap: 0.42em; }
+  .clock svg { width: 1.35em; height: 1.35em; flex: none; transform: rotate(-90deg); }
+  .clock .track { fill: none; stroke: rgba(255, 255, 255, 0.16); stroke-width: 3.4; }
+  .clock .arc { fill: none; stroke: var(--brass); stroke-width: 3.4; }
+  .clock.open svg { animation: spin 1.3s linear infinite; }
+  .clock .limit { color: var(--muted); font-weight: 400; }
+  .clock .limit:empty { display: none; }
+  .tab.urgent { border-color: var(--hot); color: #ffc2b8; animation: urgent 0.5s ease-in-out infinite alternate; }
+  .tab.urgent .arc { stroke: var(--hot); }
+  .tab.urgent .limit { color: #ffc2b8; }
+  @keyframes spin { to { transform: rotate(270deg); } }
+  @keyframes urgent { from { box-shadow: 0 0 0 0 rgba(255, 107, 91, 0.2), 0 0.3em 0.7em rgba(0, 0, 0, 0.55); } to { box-shadow: 0 0 0.9em 0.15em rgba(255, 107, 91, 0.75), 0 0.3em 0.7em rgba(0, 0, 0, 0.55); } }
+  .tab.gain, .tab.ribbon {
+    background: linear-gradient(180deg, #ffe9a6, var(--gold) 55%, #e0ad37); color: #2a1d02; border-color: var(--gold-pale);
+    font-weight: 700; box-shadow: 0 0 1.1em var(--gold-glow), 0 0.3em 0.7em rgba(0, 0, 0, 0.55);
+  }
+  .tab.gain { font-size: 0.98em; letter-spacing: 0.02em; padding: 0.08em 0.6em 0.02em; }
+  .tab.ribbon {
+    font-size: 0.8em; letter-spacing: 0.24em; text-transform: uppercase; padding: 0.22em 1.5em 0.14em 1.74em; border: 0;
+    clip-path: polygon(0 0, 100% 0, calc(100% - 0.6em) 50%, 100% 100%, 0 100%, 0.6em 50%);
+  }
+
+  /* End of a hand: gold for whoever took a pot, everyone else steps back. */
+  .seat.winner { z-index: 4; }
+  .seat.winner::before {
+    content: ""; position: absolute; inset: -0.6em -0.55em -1.6em; z-index: -1; pointer-events: none; border-radius: 0.7em;
+    border: 2px solid var(--gold);
+    background: radial-gradient(120% 90% at 50% 40%, rgba(255, 215, 106, 0.24), rgba(255, 215, 106, 0.06) 72%);
+    box-shadow: 0 0 0 1px rgba(255, 241, 191, 0.35), 0 0 1.6em 0.3em var(--gold-glow), inset 0 0 1.4em rgba(255, 215, 106, 0.22);
+    animation: crown 1.4s ease-in-out infinite alternate;
+  }
+  .seat.flip.winner::before { inset: -1.6em -0.55em -0.95em; }
+  @keyframes crown {
+    from { box-shadow: 0 0 0 1px rgba(255, 241, 191, 0.3), 0 0 1em 0.1em rgba(255, 215, 106, 0.4), inset 0 0 1.2em rgba(255, 215, 106, 0.16); }
+    to { box-shadow: 0 0 0 1px rgba(255, 241, 191, 0.5), 0 0 2.4em 0.55em rgba(255, 215, 106, 0.78), inset 0 0 1.8em rgba(255, 215, 106, 0.32); }
+  }
+  .seat.winner .plate { border-color: var(--gold); background: linear-gradient(180deg, #4d3c12, #241b06); box-shadow: 0 0 0 1px var(--gold), 0 0 1.3em var(--gold-glow); opacity: 1; }
+  .seat.winner .name { color: var(--gold); text-shadow: 0 0 0.8em rgba(255, 215, 106, 0.75); }
+  .seat.winner .stack { color: var(--gold-pale); }
+  .seat.winner .card { box-shadow: 0 0 0 0.14em var(--gold), 0 0 1em 0.12em var(--gold-glow), 0 0.38em 0.9em rgba(0, 0, 0, 0.45); }
+  .seat.winner .handname { background: var(--gold); color: #2a1d02; border-color: var(--gold-pale); font-weight: 700; }
+  .stage.settled .seat:not(.winner) { opacity: 0.5; filter: saturate(0.5); }
+
+  .bet {
+    position: absolute; left: calc(50% - var(--c) * (50% + 2.2em)); top: calc(50% - var(--s) * (50% + 2em));
+    transform: translate(-50%, -50%); z-index: 1; pointer-events: none;
+    display: flex; align-items: center; gap: 0.38em; font-size: 0.9em; color: var(--cream); white-space: nowrap; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.75);
+  }
+  .bet::before {
+    content: ""; width: 1.05em; height: 1.05em; flex: none; border-radius: 50%;
+    background: var(--red); border: 0.13em dashed var(--cream); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  .bet:empty { display: none; }
+  .bet.bump { animation: chip-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  @keyframes chip-in {
+    from { opacity: 0; transform: translate(-50%, -50%) translate(calc(var(--c) * 1.4em), calc(var(--s) * 1.4em)) scale(0.7); }
+    to { opacity: 1; transform: translate(-50%, -50%); }
+  }
+
+  /* Motion alert: announces each action of a non-human player between that seat and the centre. */
+  .alert { position: absolute; left: calc(50% - var(--c) * (50% + 2.5em)); top: calc(50% - var(--s) * (50% + 1.75em)); width: 0; height: 0; z-index: 6; pointer-events: none; }
+  /* At the sides the callout ends short of the board and grows back over its own seat, never over the community cards. */
+  .alert.to-left, .alert.to-right { left: calc(50% - var(--c) * (50% + 3em)); }
+  .alert.to-left { --ax: -100%; }
+  .alert.to-right { --ax: 0%; }
+  .callout {
+    position: absolute; left: 0; top: 0; transform: translate(var(--ax, -50%), -50%); opacity: 0; white-space: nowrap;
+    padding: 0.5em 1em 0.42em; font: 700 0.74em var(--label); letter-spacing: 0.15em; text-transform: uppercase;
+    background: var(--brass); color: var(--ink);
+    box-shadow: 0 0.8em 1.8em rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  }
+  .hero .callout, .roomy .callout { font-size: 0.95em; }
+  .callout::after { content: ""; position: absolute; width: 0.7em; height: 0.7em; background: inherit; transform: rotate(45deg); }
+  .alert.to-top .callout::after { left: calc(50% - 0.35em); top: -0.3em; }
+  .alert.to-bottom .callout::after { left: calc(50% - 0.35em); bottom: -0.3em; }
+  .alert.to-left .callout::after, .alert.to-right .callout::after { display: none; }
+  .callout.raise { background: var(--red); color: var(--cream); }
+  .callout.fold { background: #3b4843; color: var(--text); }
+  .callout.show { animation: alert-pop 2.4s cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+  .callout.show.allin { animation: alert-pop 2.4s cubic-bezier(0.2, 0.9, 0.2, 1) both, alert-shake 0.5s 0.25s linear; }
+  @keyframes alert-pop {
+    0% { opacity: 0; transform: translate(var(--ax, -50%), -50%) translate(calc(var(--c) * 1.2em), calc(var(--s) * 1.2em)) scale(0.6); }
+    10% { opacity: 1; transform: translate(var(--ax, -50%), -50%) scale(1.16); }
+    18% { transform: translate(var(--ax, -50%), -50%) scale(1); }
+    82% { opacity: 1; transform: translate(var(--ax, -50%), -50%) scale(1); }
+    100% { opacity: 0; transform: translate(var(--ax, -50%), -50%) translate(calc(var(--c) * -0.5em), calc(var(--s) * -0.5em)) scale(0.96); }
+  }
+  @keyframes alert-shake { 0%, 100% { margin-left: 0; } 20% { margin-left: -7px; } 40% { margin-left: 7px; } 60% { margin-left: -5px; } 80% { margin-left: 5px; } }
+  @keyframes alert-fade { 0%, 100% { opacity: 0; } 8%, 85% { opacity: 1; } }
+  .seat.pulse .cards { animation: seat-pulse 0.95s ease-out; }
+  @keyframes seat-pulse {
+    0% { filter: drop-shadow(0 0 0 rgba(208, 170, 92, 0)); transform: scale(1); }
+    25% { filter: drop-shadow(0 0 1em rgba(208, 170, 92, 0.95)); transform: scale(1.05); }
+    100% { filter: drop-shadow(0 0 0 rgba(208, 170, 92, 0)); transform: scale(1); }
+  }
+  @keyframes blink { 50% { opacity: 0.25; } }
+  @media (prefers-reduced-motion: reduce) {
+    .callout.show, .callout.show.allin { animation: alert-fade 2.4s linear both; }
+    .seat.pulse .cards, .bet.bump, .card.fresh, .card.opening, .mode, .seat.winner::before, .tab.urgent, .clock.open svg, .status.thinking::after { animation: none; }
+    .card.opening::after { content: none; }
+    .seat, .cards, .plate { transition: none; }
+  }
+
+  .console { margin: 8px 10px 0; display: grid; gap: 10px; justify-items: center; }
+  .status { font-family: var(--display); font-style: italic; font-size: 1.45rem; text-align: center; min-height: 1.3em; }
+  .status.thinking::after { content: "…"; animation: blink 1.1s steps(3, end) infinite; }
+  .substatus { color: var(--brass); font-size: 0.9rem; letter-spacing: 0.05em; text-align: center; max-width: 720px; line-height: 1.45; margin-top: -4px; }
+  .substatus.hot { color: #ffb4a8; }
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: center; min-height: 52px; padding-top: 6px; }
+  .act {
+    background: transparent; border: 1px solid var(--brass); padding: 11px 18px 10px; min-width: 104px;
+    text-transform: uppercase; letter-spacing: 0.13em; font-size: 0.82rem; font-weight: 600; position: relative;
+    transition: transform 0.12s ease, background 0.12s ease;
+  }
+  .act b { color: var(--brass); font-weight: 600; margin-left: 5px; letter-spacing: 0.02em; font-size: 0.95rem; }
+  .act kbd { position: absolute; top: -9px; left: 8px; background: var(--ink); color: var(--muted); font: 600 0.6rem var(--label); padding: 0 5px; letter-spacing: 0.1em; }
+  .act:hover { background: var(--brass-faint); transform: translateY(-2px); }
+  .act.safe { background: var(--brass); color: var(--ink); }
+  .act.safe b { color: var(--ink); }
+  .act.safe:hover { background: #e3c07a; }
+  .act.fold { border-color: #6d7b74; color: var(--muted); }
+  .act.allin { border-color: var(--red); }
+  .act.allin b { color: #e2776b; }
+  .auto { display: flex; align-items: center; gap: 9px; cursor: pointer; user-select: none; }
+  .auto:hover { color: var(--text); }
+  /* A brass-edged box that fills with brass and a dark tick when on. */
+  input[type="checkbox"] {
+    appearance: none; -webkit-appearance: none; margin: 0; flex: none; cursor: pointer;
+    width: 18px; height: 18px; display: inline-grid; place-content: center;
+    background: var(--ink); border: 1px solid var(--brass-dim); border-radius: 3px;
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+  input[type="checkbox"]::after {
+    content: ""; width: 5px; height: 9px; margin-top: -2px;
+    border: solid var(--ink); border-width: 0 2px 2px 0; transform: rotate(45deg) scale(0);
+    transition: transform 0.12s ease;
+  }
+  input[type="checkbox"]:hover { border-color: var(--brass); }
+  input[type="checkbox"]:checked { background: var(--brass); border-color: var(--brass); }
+  input[type="checkbox"]:checked::after { transform: rotate(45deg) scale(1); }
+  input[type="checkbox"]:focus-visible { outline: none; box-shadow: 0 0 0 2px var(--ink), 0 0 0 3px var(--brass); }
+  .notice { color: #f0c58f; border: 1px solid var(--brass-dim); padding: 8px 12px; font-size: 0.85rem; max-width: 640px; }
+  .error { color: #f0a59b; border: 1px solid var(--red); padding: 8px 12px; font-size: 0.85rem; }
+
+  aside { display: grid; gap: 16px; }
+  .panel { border: 1px solid var(--brass-faint); padding: 13px 16px 14px; background: rgba(10, 26, 22, 0.55); min-width: 0; }
+  .panel h2 { margin: 0 0 10px; font: italic 1.12rem var(--display); color: var(--brass); }
+  .score { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 22px; }
+  .score > div { min-width: 0; }
+  .score .caps { white-space: nowrap; }
+  .score strong { display: block; font: 1.5rem var(--display); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .score small { display: block; font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .up { color: #8fd0a6 !important; } .down { color: #f0a59b !important; }
+  .grid { display: grid; gap: 5px 10px; align-items: baseline; font-size: 0.86rem; }
+  .grid > span { white-space: nowrap; }
+  .grid > .who { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .grid > .num { text-align: right; }
+  .grid > .head { font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); }
+  .grid > .lead { color: var(--gold); }
+  .grid > .now { color: #f6e2ac; }
+  .grid > .quiet { color: var(--muted); }
+  .standings { grid-template-columns: minmax(0, 1fr) auto auto; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--brass-faint); }
+  .times { grid-template-columns: minmax(0, 1fr) auto auto auto auto; }
+  ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 0.9rem; max-height: 240px; overflow: auto; }
+  /* Panels that scroll keep the wheel to themselves and leave room for the bar, so the text never jumps. */
+  aside ol, .think, .plist { overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; }
+  ol li.street { color: var(--brass); letter-spacing: 0.2em; text-transform: uppercase; font-size: 0.66rem; margin-top: 5px; }
+  ol li { color: #b9c7bf; }
+  ol li.s0 { color: var(--cream); }
+  ol li.won { color: var(--gold); }
+  ol li .took { color: var(--muted); font-size: 0.86em; }
+  ol li .late { color: #f0a59b; font-size: 0.86em; }
+  .think { display: grid; gap: 11px; font-size: 0.86rem; max-height: 320px; overflow: auto; }
+  .think h3 { margin: 4px 0 0; font: 600 0.7rem var(--label); letter-spacing: 0.18em; text-transform: uppercase; color: var(--text); }
+  /* One column: the start screen's seat rows share the `row` class and its four-column grid. */
+  .think .row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .think .head span:first-child { min-width: 0; }
+  .think .head { display: flex; justify-content: space-between; gap: 8px; }
+  .think .head span:first-child { text-transform: uppercase; letter-spacing: 0.13em; font-size: 0.7rem; }
+  .think .head span:last-child { color: var(--muted); white-space: nowrap; }
+  .think .bar { height: 4px; background: rgba(255, 255, 255, 0.09); }
+  .think .bar i { display: block; height: 100%; background: var(--brass); }
+  .think .note { color: var(--muted); font-size: 0.78rem; }
+  .think .stepped { color: #f0c58f; }
+  .hint { color: var(--muted); font-size: 0.8rem; line-height: 1.45; margin: 0; }
+  code { font-family: var(--mono); font-size: 0.92em; color: var(--cream); }
+
+  /* Header controls added with personas, the close button and sound. */
+  .ghost.warn { border-color: #8c4037; color: #f0a59b; }
+  .ghost.warn:hover { background: rgba(184, 55, 43, 0.22); }
+  .toggle { display: inline-flex; align-items: center; gap: 8px; }
+  .toggle b { min-width: 2.4em; text-align: center; padding: 0 6px; font-weight: 600; background: var(--brass); color: var(--ink); }
+  .toggle[aria-checked="false"] b { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--brass-dim); }
+  header .ghost:focus-visible, .setup .ghost:focus-visible, dialog.sheet :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  /* A persona's skill rating beside its name on the seat plate. */
+  .who-row { display: flex; justify-content: center; align-items: baseline; gap: 0.42em; min-width: 0; }
+  .who-row .name { min-width: 0; }
+  .rating { flex: none; font: 600 0.62em/1.5 var(--label); letter-spacing: 0.06em; padding: 0 0.42em; color: var(--brass); border: 1px solid var(--brass-dim); }
+  .hero .rating { font-size: 0.72em; }
+  .rating:empty { display: none; }
+  .seat.winner .rating { color: var(--gold-pale); border-color: var(--gold); }
+
+  /* Start screen: the way in to personas, and a seat held by one. */
+  .setup-top { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; }
+  .setup-top .caps { flex: 1 1 260px; }
+  .persona-line { grid-column: 3 / -1; min-width: 0; color: var(--brass); font: italic 0.98rem var(--display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (max-width: 600px) { .persona-line { grid-column: 1 / -1; } }
+
+  /* Dialogs: personas, leaderboard, history log, game summary and the confirm step. */
+  dialog.sheet {
+    width: min(780px, calc(100vw - 30px)); max-width: none; max-height: calc(100vh - 30px); overflow: auto;
+    padding: 20px 22px 22px; color: var(--text); font-family: var(--label);
+    background: linear-gradient(180deg, #11261f, #0a1814); border: 1px solid var(--brass);
+    box-shadow: 0 0 0 6px #0c1c18, 0 0 0 7px var(--brass-dim), 0 30px 80px rgba(0, 0, 0, 0.75);
+  }
+  dialog.sheet::backdrop { background: rgba(3, 8, 7, 0.76); }
+  dialog.sheet[open] { display: grid; gap: 14px; align-content: start; animation: rise 0.26s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  dialog.sheet.wide { width: min(1160px, calc(100vw - 30px)); }
+  dialog.sheet.slim { width: min(470px, calc(100vw - 30px)); }
+  .sheet-head { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; }
+  .sheet-head h2, dialog.sheet.slim h2 { margin: 0; font: 1.95rem/1.05 var(--display); min-width: 0; overflow-wrap: anywhere; }
+  .sheet-head h2 { flex: 1 1 auto; }
+  .sheet-head h2 em { color: var(--brass); }
+  .sheet-foot { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .sheet-text { margin: 0; color: var(--text); font-size: 0.95rem; line-height: 1.5; overflow-wrap: anywhere; }
+  .primary.danger { background: var(--red); border-color: #d6574a; color: var(--cream); }
+  .primary.danger:hover { background: #cf4639; }
+  .saved { color: #8fd0a6; font-size: 0.84rem; }
+  .saved:empty { display: none; }
+
+  .scroll-x { overflow-x: auto; min-width: 0; }
+  .sheet-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+  .sheet-table th {
+    font: 600 0.6rem var(--label); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+    text-align: right; padding: 4px 9px 6px; white-space: nowrap; border-bottom: 1px solid var(--brass-faint);
+  }
+  .sheet-table th.span { text-align: center; color: var(--brass); border-bottom: 0; padding-bottom: 0; }
+  .sheet-table td { padding: 8px 9px 7px; text-align: right; white-space: nowrap; border-bottom: 1px solid rgba(208, 170, 92, 0.1); }
+  .sheet-table th.left, .sheet-table td.left { text-align: left; }
+  .sheet-table td.name { font: italic 1.1rem var(--display); max-width: 14em; overflow: hidden; text-overflow: ellipsis; }
+  .sheet-table td.wrap { white-space: normal; min-width: 11em; max-width: 24em; overflow-wrap: anywhere; }
+  .sheet-table td.quiet { color: var(--muted); }
+  .sheet-table td small { color: var(--muted); font-size: 0.82em; margin-left: 0.5em; }
+  .sheet-table tr.gold td { background: linear-gradient(90deg, rgba(255, 215, 106, 0.2), rgba(255, 215, 106, 0.05)); }
+  .sheet-table tr.gold td.name { color: var(--gold); text-shadow: 0 0 0.8em rgba(255, 215, 106, 0.55); }
+  .sheet-table tr.gold td:first-child { box-shadow: inset 3px 0 0 var(--gold); }
+  .sheet-table tr.pick { cursor: pointer; }
+  .sheet-table tr.pick:hover td { background: var(--brass-faint); }
+  .linkish { background: none; border: 0; padding: 0; font: inherit; color: inherit; text-align: left; max-width: 100%; overflow: hidden; text-overflow: ellipsis; text-decoration: underline dotted var(--brass-dim); text-underline-offset: 4px; }
+  .medal { display: inline-grid; place-items: center; width: 2em; height: 2em; border-radius: 50%; font: 700 0.8rem var(--label); color: var(--muted); border: 1px solid var(--brass-faint); }
+  tr.rank1 .medal { background: radial-gradient(circle at 35% 30%, var(--gold-pale), var(--gold) 55%, #c9962a); color: #2a1d02; border-color: var(--gold-pale); box-shadow: 0 0 12px var(--gold-glow); }
+  tr.rank2 .medal { background: radial-gradient(circle at 35% 30%, #ffffff, #c9d2d0 55%, #8e9a97); color: #1c2523; border-color: #e6ecea; }
+  tr.rank3 .medal { background: radial-gradient(circle at 35% 30%, #f3c9a0, #c28451 55%, #8a5a33); color: #2a1706; border-color: #e0ad82; }
+  tr.rank1 td.name { color: var(--gold); text-shadow: 0 0 0.8em rgba(255, 215, 106, 0.55); }
+  tr.rank1 td { background: linear-gradient(90deg, rgba(255, 215, 106, 0.16), rgba(255, 215, 106, 0.03)); }
+  tr.rank2 td.name { color: #dfe6e3; }
+  tr.rank3 td.name { color: #e0ad82; }
+  tr.rank1 td.skill-cell, tr.rank2 td.skill-cell, tr.rank3 td.skill-cell, td.skill-cell { font: 1.15rem var(--display); color: var(--brass); }
+  tr.rank1 td.skill-cell { color: var(--gold); }
+
+  .plist { display: grid; gap: 6px; max-height: min(300px, 34vh); overflow: auto; }
+  .pitem { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px 12px; align-items: center; padding: 8px 12px; border: 1px solid var(--brass-faint); background: rgba(8, 17, 15, 0.5); }
+  .pitem .pwho { min-width: 0; display: grid; gap: 1px; }
+  .pitem .pname { font: italic 1.18rem var(--display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pitem .pmeta { color: var(--muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .skill { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
+  .skill b { font: 1.3rem var(--display); font-weight: 400; color: var(--brass); }
+  @media (max-width: 560px) { .pitem { grid-template-columns: minmax(0, 1fr) auto; } }
+  .pform { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; border-top: 1px solid var(--brass-faint); padding-top: 14px; }
+  .pform > h3 { grid-column: 1 / -1; margin: 0; font: italic 1.25rem var(--display); color: var(--brass); font-weight: 400; }
+  .pform > .wide, .pform .style-line { grid-column: 1 / -1; margin: 0; }
+  .pf-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
+  .pf-controls:empty { display: none; }
+  .pf-controls > .hint { grid-column: 1 / -1; }
+  .field { display: grid; gap: 5px; min-width: 0; align-content: start; }
+  .field .reason { justify-self: start; }
+  .text-input { display: block; width: 100%; background: var(--ink); border: 1px solid var(--brass-dim); color: var(--text); padding: 7px 11px; font: 0.95rem var(--label); border-radius: 0; }
+  .text-input::placeholder { color: var(--muted); }
+  .text-input:focus { outline: none; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
+  @media (max-width: 560px) { .pform, .pf-controls { grid-template-columns: minmax(0, 1fr); } }
+
+  .verdict { font: italic 1.5rem/1.25 var(--display); overflow-wrap: anywhere; }
+  .verdict b { color: var(--gold); font-weight: 400; text-shadow: 0 0 0.8em rgba(255, 215, 106, 0.6); }
+  .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+  .fact { border: 1px solid var(--brass-faint); padding: 9px 12px 8px; background: rgba(8, 17, 15, 0.5); display: grid; gap: 3px; min-width: 0; align-content: start; }
+  .fact strong { font: 1.3rem var(--display); font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fact small { color: var(--muted); font-size: 0.78rem; line-height: 1.35; overflow-wrap: anywhere; }
+  .fact small:empty { display: none; }
+  .ratings { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 8px; margin-top: 7px; }
+  .rate { border: 1px solid var(--brass-faint); padding: 8px 12px 7px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 10px; align-items: center; background: rgba(8, 17, 15, 0.5); }
+  .rate .who { font: italic 1.08rem var(--display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rate .move { grid-column: 1; color: var(--muted); font-size: 0.86rem; white-space: nowrap; }
+  .rate .delta { grid-column: 2; grid-row: 1 / span 2; font: 1.45rem var(--display); color: var(--muted); }
+  /* Game history: the list of games, then one game hand by hand. */
+  .badge { display: inline-block; margin-left: 0.6em; padding: 1px 7px; border: 1px solid var(--brass); color: var(--brass); font: 600 0.58rem var(--label); letter-spacing: 0.14em; text-transform: uppercase; vertical-align: 2px; }
+  .sheet-table td.winner { color: var(--gold); }
+  .hands { display: grid; gap: 6px; }
+  details.hand { border: 1px solid var(--brass-faint); background: rgba(8, 17, 15, 0.5); min-width: 0; }
+  details.hand > summary { cursor: pointer; padding: 8px 12px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; list-style: none; }
+  details.hand > summary::-webkit-details-marker { display: none; }
+  details.hand > summary::before { content: "\25B8"; color: var(--brass); }
+  details.hand[open] > summary::before { content: "\25BE"; }
+  details.hand > summary:hover { background: var(--brass-faint); }
+  .hand .hnum { font: italic 1.08rem var(--display); color: var(--brass); }
+  .hand .hboard { min-width: 0; }
+  .hand .hwin { color: var(--gold); min-width: 0; overflow-wrap: anywhere; }
+  .hand .hpot { color: var(--muted); font-size: 0.84rem; margin-left: auto; }
+  .hand-body { padding: 2px 14px 12px 30px; display: grid; gap: 10px; }
+  .hand-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 4px 18px; font-size: 0.88rem; }
+  .hand-cards > div { display: flex; gap: 8px; min-width: 0; align-items: baseline; }
+  .hand-cards .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #b9c7bf; min-width: 0; }
+  .hand-cards .quiet { color: var(--muted); font-size: 0.85em; white-space: nowrap; }
+  .hand-cards .hboard { flex: none; white-space: nowrap; }
+  .ctext { font-weight: 600; color: var(--cream); white-space: nowrap; }
+  .ctext.red { color: #e2776b; }
+  .hand-body ol { max-height: none; overflow: visible; }
+  @media (max-width: 560px) { .hand .hpot { margin-left: 0; } .hand-body { padding-left: 14px; } }
+  /* Friends' table: the owner's invitations, and a friend's own page with no game controls. */
+  .invite-list { display: grid; gap: 8px; }
+  .invite { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; border: 1px solid var(--brass-faint); background: rgba(8, 17, 15, 0.5); padding: 9px 12px; }
+  .invite .who { font: italic 1.12rem var(--display); }
+  .invite code { grid-column: 1; font: 0.8rem var(--mono); color: var(--cream); overflow-wrap: anywhere; }
+  .invite button { grid-row: 1 / span 2; grid-column: 2; }
+  .name-box { display: block; width: 100%; max-width: 260px; background: var(--ink); border: 1px solid var(--brass-dim); color: var(--text); padding: 7px 11px; font: 0.95rem var(--label); }
+  .name-box:focus { outline: none; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
+  body.guest #close-game, body.guest #open-personas, body.guest #open-board, body.guest #open-games, body.guest .addon-slot, body.guest #open-invites, body.guest #change,
+  body.guest #summary-again, body.guest #summary-change, body.guest #summary-board, body.guest #summary-games, body.guest #setup { display: none !important; }
+  .waiting { color: var(--muted); font: italic 1.05rem var(--display); }
+  @media (prefers-reduced-motion: reduce) { dialog.sheet[open] { animation: none; } .meter i { transition: none; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="mark" id="brand">Open<em>Poker</em></div>
+  <div class="rule"></div>
+  <div class="current">
+    <span class="caps" id="handcount">Hold'em</span><span class="caps" id="modename"></span>
+    <button class="ghost warn" id="close-game" hidden>Close game</button>
+    <button class="ghost" id="open-personas" hidden>Personas</button>
+    <button class="ghost" id="open-board" hidden>Leaderboard</button>
+    <button class="ghost" id="open-games" hidden>History</button>
+    <span class="addon-slot" id="addon-header"></span>
+    <button class="ghost" id="open-invites" hidden>Invite</button>
+    <button class="ghost toggle" id="mute" role="switch" aria-checked="true" title="Sounds for cards, chips, your turn and the clock">Sound <b>On</b></button>
+    <button class="ghost" id="change">Change game</button>
+  </div>
+</header>
+
+<div class="setup" id="setup" hidden>
+  <div class="setup-card">
+    <div class="setup-top">
+      <div class="caps"><span id="brand-caps">OpenPoker</span> · Hold'em for two to six · play chips only</div>
+      <button class="ghost" id="setup-personas" hidden>Personas</button>
+      <button class="ghost" id="setup-board" hidden>Leaderboard</button>
+      <button class="ghost" id="setup-games" hidden>History</button>
+      <span class="addon-slot" id="addon-setup"></span>
+    </div>
+    <h1>Choose <em>who plays</em></h1>
+    <div class="modes" id="modes"></div>
+    <p class="hint" id="mode-blurb" hidden></p>
+    <div class="config" id="config" hidden>
+      <div class="dials">
+        <div class="dial"><span class="caps" id="count-label">Seats</span><div class="seg" id="count" role="group" aria-labelledby="count-label"></div></div>
+        <div class="dial"><span class="caps" id="limit-label">Turn limit</span><div class="seg" id="limit" role="group" aria-labelledby="limit-label"></div></div>
+      </div>
+      <div class="rows" id="rows"></div>
+    </div>
+    <ul class="notes" id="setup-notes" hidden></ul>
+    <div class="error" id="setup-error" hidden></div>
+    <div class="setup-foot">
+      <button class="primary" id="deal" hidden>Deal the cards</button>
+      <span class="need" id="deal-need" hidden></span>
+      <button class="ghost" id="setup-close" hidden>Back to the table</button>
+    </div>
+  </div>
+</div>
+
+<main>
+  <section>
+    <div class="stage-wrap">
+      <div class="stage" id="stage">
+        <div class="felt"></div>
+        <div class="middle">
+          <div class="board" id="board"></div>
+          <div class="pot">Pot <span id="pot">0</span></div>
+        </div>
+        <div class="seats" id="seats"></div>
+      </div>
+    </div>
+    <div class="console">
+      <div class="status" id="status">Setting the table</div>
+      <div class="substatus" id="substatus" hidden></div>
+      <div class="actions" id="actions"></div>
+      <div class="notice" id="notice" hidden></div>
+      <div class="error" id="error" hidden></div>
+    </div>
+  </section>
+
+  <aside>
+    <div class="panel">
+      <h2>Score</h2>
+      <div class="score">
+        <div><span class="caps">Hands played</span><strong id="played">0</strong></div>
+        <div><span class="caps" id="net-label">Your result</span><strong id="net">0</strong><small id="net-detail" hidden></small></div>
+      </div>
+      <div class="grid standings" id="standings" hidden></div>
+    </div>
+    <div class="panel">
+      <h2>This hand</h2>
+      <ol id="log"></ol>
+    </div>
+    <div class="panel">
+      <h2>Reasoning time</h2>
+      <div class="grid times" id="times"></div>
+    </div>
+    <div class="panel">
+      <h2>Choices this hand</h2>
+      <div class="think" id="think"></div>
+    </div>
+    <p class="hint">Play chips only. Code deals the cards, works out the odds and sizes each bet. Every player, whether Jev, Claude, Codex, a bot or an outside agent, only picks one of the legal actions.</p>
+  </aside>
+</main>
+
+<dialog class="sheet wide" id="summary" aria-labelledby="summary-title">
+  <div class="sheet-head">
+    <h2 id="summary-title">Game <em>summary</em></h2>
+    <button class="ghost" data-close>Back to the table</button>
+  </div>
+  <div class="verdict" id="summary-verdict"></div>
+  <div class="facts" id="summary-facts"></div>
+  <div class="scroll-x"><table class="sheet-table" id="summary-table"></table></div>
+  <div id="summary-ratings-wrap" hidden>
+    <div class="caps">Skill ratings after this game</div>
+    <div class="ratings" id="summary-ratings"></div>
+  </div>
+  <p class="hint" id="summary-note" hidden></p>
+  <div class="sheet-foot">
+    <button class="primary" id="summary-again">Deal again</button>
+    <button class="ghost" id="summary-change">Change game</button>
+    <button class="ghost" id="summary-board">Leaderboard</button>
+    <button class="ghost" id="summary-games" hidden>Game history</button>
+  </div>
+</dialog>
+
+<dialog class="sheet" id="personas" aria-labelledby="personas-title">
+  <div class="sheet-head">
+    <h2 id="personas-title">Saved <em>personas</em></h2>
+    <button class="ghost" id="personas-board">Leaderboard</button>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <p class="hint">A persona is a saved player: a name, the way it plays, a skill rating that moves after every finished game, and a history log. Seat one from the player list on the start screen.</p>
+  <div class="error" id="plist-error" role="alert" hidden></div>
+  <div class="plist" id="plist"></div>
+  <div class="pform" role="group" aria-labelledby="pform-title">
+    <h3 id="pform-title">Create persona</h3>
+    <label class="field"><span class="caps">Name</span><input class="text-input" id="pf-name" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="1 to 24 characters"></label>
+    <label class="field"><span class="caps">Player</span><select id="pf-type"></select></label>
+    <div class="pf-controls wide" id="pf-controls"></div>
+    <div class="error wide" id="pf-error" role="alert" hidden></div>
+    <div class="sheet-foot wide">
+      <button class="primary" id="pf-create">Create persona</button>
+      <span class="need" id="pf-need" hidden></span>
+      <span class="saved" id="pf-saved" role="status"></span>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="sheet wide" id="leaderboard" aria-labelledby="board-title">
+  <div class="sheet-head">
+    <h2 id="board-title">Leader<em>board</em></h2>
+    <button class="ghost" id="board-personas">Personas</button>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <p class="hint" id="board-hint"></p>
+  <div class="scroll-x"><table class="sheet-table" id="board-table"></table></div>
+</dialog>
+
+<dialog class="sheet wide" id="history" aria-labelledby="history-title">
+  <div class="sheet-head">
+    <h2 id="history-title"></h2>
+    <button class="ghost" data-close>Back</button>
+  </div>
+  <p class="hint" id="history-about"></p>
+  <div class="facts" id="history-facts"></div>
+  <div class="caps">History log</div>
+  <div class="scroll-x"><table class="sheet-table" id="history-table"></table></div>
+  <p class="hint" id="history-hint" hidden></p>
+</dialog>
+
+<dialog class="sheet wide" id="games" aria-labelledby="games-title">
+  <div class="sheet-head">
+    <h2 id="games-title">Game <em>history</em></h2>
+    <button class="ghost" id="games-back" hidden>All games</button>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <p class="hint" id="games-hint"></p>
+  <div class="error" id="games-error" role="alert" hidden></div>
+  <div class="scroll-x" id="games-list"><table class="sheet-table" id="games-table"></table></div>
+  <div class="facts" id="game-facts" hidden></div>
+  <div class="scroll-x" id="game-standings" hidden><table class="sheet-table" id="game-table"></table></div>
+  <div class="caps" id="game-hands-label" hidden>Hand by hand</div>
+  <div class="hands" id="game-hands" hidden></div>
+</dialog>
+
+<dialog class="sheet" id="invites" aria-labelledby="invites-title">
+  <div class="sheet-head">
+    <h2 id="invites-title">Invite <em>friends</em></h2>
+    <button class="ghost" data-close>Close</button>
+  </div>
+  <p class="hint" id="invites-hint">Send each friend their own link. It opens the table on their phone or laptop on this Wi-Fi, showing only their cards. Anyone with a link can play that seat until the table is restarted, so share them privately.</p>
+  <div class="error" id="invites-error" role="alert" hidden></div>
+  <div class="invite-list" id="invite-list"></div>
+</dialog>
+
+<dialog class="sheet slim" id="confirm" role="alertdialog" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+  <h2 id="confirm-title"></h2>
+  <p class="sheet-text" id="confirm-text"></p>
+  <div class="sheet-foot">
+    <button class="primary danger" id="confirm-yes"></button>
+    <button class="ghost" id="confirm-no" autofocus></button>
+  </div>
+</dialog>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  // A friend's page: /play with the seat key after # (never sent to the server in the address).
+  const GUEST = location.pathname === '/play';
+  const SEAT_KEY = GUEST ? new URLSearchParams(location.hash.slice(1)).get('key') : null;
+  if (GUEST) document.body.classList.add('guest');
+  const SVG_NS = 'http://www.w3.org/2000/svg';
+  const SUIT = { s: '♠', h: '♥', d: '♦', c: '♣' };
+  const KEY = { fold: 'f', check: 'k', call: 'c', raise_small: 's', raise_large: 'l', all_in: 'a' };
+  const AUTO_DEAL_MS = 2600;
+  const ALERT_MS = 2400;
+  const URGENT_MS = 5000;
+  const ERROR_HOLD_MS = 5000;
+  // Reading the state when the change notices cannot get through (a Cloudflare quick tunnel holds them back).
+  const STREAM_GRACE_MS = 4000;
+  const POLL_MS = 1500;
+  const RING_LENGTH = 2 * Math.PI * 8;
+  // Named turn periods. Standard is the 30-second shot clock used in live poker.
+  const TURN_LIMITS = [
+    { ms: 15000, name: 'Fast' },
+    { ms: 30000, name: 'Standard' },
+    { ms: 60000, name: 'Long' },
+    { ms: 120000, name: 'Extra long' },
+    { ms: 0, name: 'No limit' }
+  ];
+  const DEFAULT_TURN_LIMIT = 30000;
+  const DEFAULT_SEATS = 4;
+  const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$/;
+  const LOST_CONTACT = GUEST
+    ? 'Lost contact with the table. The host\'s computer may be off, or the table was restarted and needs a new link.'
+    : 'Lost contact with the local game server. Is `openpoker --web` still running?';
+  const grouped = new Intl.NumberFormat('en-US');
+  const dealt = new Set();
+  let dealtHand = null;
+  let state = null;
+  let busy = false;
+  let autoDeal = false;
+  let autoTimer = null;
+  let lastVersion = -1;
+  let errorShownAt = 0;
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function fill(container, nodes) {
+    container.replaceChildren(...nodes);
+  }
+
+  const isSeat = value => Number.isInteger(value) && value >= 0;
+  // Every chip amount on the page goes through here: 10000 reads "10,000".
+  const chips = value => grouped.format(Number(value) || 0);
+  const signed = value => (value > 0 ? `+${chips(value)}` : (value < 0 ? `-${chips(-value)}` : '0'));
+
+  function seconds(ms) {
+    const value = Math.max(0, Number(ms) || 0);
+    if (value < 600000) return `${(value / 1000).toFixed(1)} s`;
+    const whole = Math.round(value / 1000);
+    return `${Math.floor(whole / 60)} m ${String(whole % 60).padStart(2, '0')} s`;
+  }
+
+  // A recorded reasoning time. A bot answers in a few milliseconds, which reads better as "under a tenth" than as "0.0 s".
+  const took = ms => (Number(ms) < 50 ? '<0.1 s' : seconds(ms));
+
+  function listNames(names) {
+    return names.length < 2 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names.at(-1)}`;
+  }
+
+  function showError(text) {
+    errorShownAt = Date.now();
+    $('error').textContent = text;
+    $('error').hidden = false;
+  }
+
+  const finite = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+  const dash = (value, format) => (finite(value) ? format(Number(value)) : '–');
+  // A skill rating is shown as a whole number.
+  const skill = value => dash(value, number => grouped.format(Math.round(number)));
+  const signedSkill = value => { const whole = Math.round(value); return whole > 0 ? `+${whole}` : (whole < 0 ? `−${-whole}` : '±0'); };
+  const perHundred = value => dash(value, number => `${number > 0 ? '+' : (number < 0 ? '−' : '')}${Math.abs(number).toFixed(1)}`);
+  const tone = value => (Number(value) > 0 ? ' up' : (Number(value) < 0 ? ' down' : ''));
+
+  function ordinal(place) {
+    const tail = place % 100;
+    if (tail >= 11 && tail <= 13) return `${place}th`;
+    return `${place}${{ 1: 'st', 2: 'nd', 3: 'rd' }[place % 10] || 'th'}`;
+  }
+
+  // How long a whole game took: "42 s", "6 m 05 s", "1 h 12 m".
+  function duration(ms) {
+    if (!finite(ms)) return '–';
+    const whole = Math.max(0, Math.round(Number(ms) / 1000));
+    if (whole < 60) return `${whole} s`;
+    if (whole < 3600) return `${Math.floor(whole / 60)} m ${String(whole % 60).padStart(2, '0')} s`;
+    return `${Math.floor(whole / 3600)} h ${String(Math.floor((whole % 3600) / 60)).padStart(2, '0')} m`;
+  }
+
+  // The server may send a date as text or as milliseconds.
+  function when(value) {
+    if (value === null || value === undefined || value === '') return '–';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '–';
+    const sameYear = date.getFullYear() === new Date().getFullYear();
+    return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', ...(sameYear ? {} : { year: 'numeric' }), hour: '2-digit', minute: '2-digit' }).format(date);
+  }
+
+  // Any request that is not a move in the game: it never waits for, or blocks, the table's own requests.
+  async function request(method, path, body) {
+    const init = { method, cache: 'no-store' };
+    if (body !== undefined) {
+      init.headers = { 'Content-Type': 'application/json' };
+      init.body = JSON.stringify(body);
+    }
+    const response = await fetch(path, init);
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+    return { ok: response.ok, status: response.status, payload: payload && typeof payload === 'object' ? payload : {} };
+  }
+
+  /* ---------- Dialogs ---------- */
+
+  const dialogOpen = () => Boolean(document.querySelector('dialog[open]'));
+
+  // Opens a dialog on top of whatever is showing, another dialog included. The browser keeps the focus inside and closes it on Escape.
+  function openDialog(id) {
+    const dialog = $(id);
+    if (dialog.open) dialog.close();
+    try {
+      dialog.showModal();
+    } catch {
+      dialog.setAttribute('open', '');
+    }
+  }
+
+  function closeDialog(id) {
+    if ($(id).open) $(id).close();
+  }
+
+  let confirmed = null;
+  function askConfirm({ title, text, yes, no, onYes }) {
+    $('confirm-title').textContent = title;
+    $('confirm-text').textContent = text;
+    $('confirm-yes').textContent = yes;
+    $('confirm-no').textContent = no;
+    openDialog('confirm');
+    confirmed = onYes;
+    $('confirm-no').focus();
+  }
+
+  /* ---------- Sound ---------- */
+
+  /*
+   * Every sound is built from oscillators and filtered noise; there are no audio files. The audio
+   * context is made on the first click or key press, because a browser refuses sound that starts on
+   * its own. Nothing here may throw: a page without sound is still a working table.
+   */
+  const sound = (() => {
+    const STORE_KEY = 'jev-card-room:muted';
+    let context = null;
+    let master = null;
+    let noise = null;
+    let muted = false;
+    try {
+      muted = window.localStorage.getItem(STORE_KEY) === '1';
+    } catch {
+      muted = false;
+    }
+
+    function wake() {
+      if (muted) return Promise.resolve();
+      try {
+        if (!context) {
+          const Context = window.AudioContext || window.webkitAudioContext;
+          if (!Context) return Promise.resolve();
+          context = new Context();
+          master = context.createGain();
+          master.gain.value = 0.5;
+          master.connect(context.destination);
+        }
+        if (context.state !== 'running') return context.resume().catch(() => {});
+      } catch {
+        context = null;
+        master = null;
+      }
+      return Promise.resolve();
+    }
+
+    function envelope(at, gain, attack, decay) {
+      const amp = context.createGain();
+      amp.gain.setValueAtTime(0.0001, at);
+      amp.gain.exponentialRampToValueAtTime(gain, at + attack);
+      amp.gain.exponentialRampToValueAtTime(0.0001, at + attack + decay);
+      amp.connect(master);
+      return amp;
+    }
+
+    function note(at, { freq, to = null, type = 'sine', gain = 0.1, attack = 0.004, decay = 0.2 }) {
+      const osc = context.createOscillator();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, at);
+      if (to) osc.frequency.exponentialRampToValueAtTime(to, at + attack + decay);
+      osc.connect(envelope(at, gain, attack, decay));
+      osc.start(at);
+      osc.stop(at + attack + decay + 0.03);
+    }
+
+    function hiss(at, { from, to = from, q = 1, kind = 'bandpass', gain = 0.1, attack = 0.005, decay = 0.1 }) {
+      if (!noise) {
+        noise = context.createBuffer(1, context.sampleRate, context.sampleRate);
+        const data = noise.getChannelData(0);
+        for (let index = 0; index < data.length; index += 1) data[index] = Math.random() * 2 - 1;
+      }
+      const source = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      source.buffer = noise;
+      filter.type = kind;
+      filter.Q.value = q;
+      filter.frequency.setValueAtTime(from, at);
+      if (to !== from) filter.frequency.exponentialRampToValueAtTime(to, at + attack + decay);
+      source.connect(filter);
+      filter.connect(envelope(at, gain, attack, decay));
+      source.start(at, Math.random() * 0.5);
+      source.stop(at + attack + decay + 0.03);
+    }
+
+    // One chip landing on another: a short bright click.
+    function chip(at, gain = 0.1, pitch = 1) {
+      note(at, { freq: 2350 * pitch, type: 'triangle', gain, decay: 0.045 });
+      note(at, { freq: 3720 * pitch, gain: gain * 0.45, decay: 0.03 });
+      hiss(at, { from: 5200, kind: 'highpass', q: 0.8, gain: gain * 0.5, decay: 0.02 });
+    }
+
+    function bell(at, freq, gain, decay) {
+      note(at, { freq, gain, attack: 0.008, decay });
+      note(at, { freq: freq * 2, gain: gain * 0.22, attack: 0.008, decay: decay * 0.5 });
+    }
+
+    const VOICES = {
+      // Cards sliding off the deck, one flick a card.
+      deal(at, { cards = 2 }) {
+        for (let index = 0; index < Math.min(6, Math.max(1, cards)); index += 1) hiss(at + index * 0.085, { from: 2600, to: 900, q: 0.9, gain: 0.11, decay: 0.075 });
+      },
+      // Two soft knocks on the table.
+      check(at) {
+        [0, 0.11].forEach((offset, index) => {
+          note(at + offset, { freq: 190, to: 95, gain: index ? 0.13 : 0.18, decay: 0.09 });
+          hiss(at + offset, { from: 420, kind: 'lowpass', q: 0.7, gain: 0.05, decay: 0.04 });
+        });
+      },
+      call(at) {
+        chip(at, 0.085);
+        chip(at + 0.075, 0.075, 1.06);
+      },
+      // More chips than a call, rising, with a small accent at the end.
+      raise(at, { large = false }) {
+        const count = large ? 6 : 4;
+        for (let index = 0; index < count; index += 1) chip(at + index * 0.058, 0.1 + index * 0.012, 1 + index * 0.035);
+        note(at + count * 0.058, { freq: large ? 740 : 620, type: 'triangle', gain: 0.055, decay: 0.14 });
+      },
+      // The whole stack pushed forward: a low thud, a slide, and a spill of chips.
+      all_in(at) {
+        note(at, { freq: 120, to: 48, gain: 0.3, decay: 0.32 });
+        hiss(at, { from: 380, to: 1500, q: 0.8, gain: 0.12, attack: 0.04, decay: 0.3 });
+        for (let index = 0; index < 8; index += 1) chip(at + 0.1 + index * 0.045, 0.085 + index * 0.006, 0.9 + index * 0.03);
+      },
+      // Cards thrown away.
+      fold(at) {
+        hiss(at, { from: 1700, to: 380, q: 0.7, gain: 0.085, attack: 0.03, decay: 0.26 });
+      },
+      turn(at) {
+        bell(at, 659.25, 0.1, 0.7);
+        bell(at + 0.16, 987.77, 0.085, 0.9);
+      },
+      tick(at, { own = false }) {
+        note(at, { freq: 1500, type: 'triangle', gain: own ? 0.05 : 0.026, decay: 0.035 });
+      },
+      win(at, { soft = false }) {
+        const gain = soft ? 0.06 : 0.1;
+        [783.99, 987.77, 1174.66, 1567.98].forEach((freq, index) => note(at + index * 0.085, { freq, type: 'triangle', gain, decay: 0.32 }));
+        chip(at + 0.36, gain * 0.7);
+        chip(at + 0.42, gain * 0.6, 1.08);
+      },
+      // The match winner: a longer run up the scale that lands on a held chord, with chips raining in.
+      match_win(at) {
+        [523.25, 659.25, 783.99, 1046.5, 1318.51].forEach((freq, index) => note(at + index * 0.1, { freq, type: 'triangle', gain: 0.1, decay: 0.34 }));
+        for (const freq of [523.25, 659.25, 783.99, 1046.5]) bell(at + 0.56, freq, 0.065, 1.3);
+        note(at + 0.56, { freq: 130.81, gain: 0.12, attack: 0.02, decay: 1.1 });
+        for (let index = 0; index < 7; index += 1) chip(at + 0.66 + index * 0.07, 0.05, 0.95 + index * 0.04);
+      },
+      // A hand that ended without you winning: two plain notes, neither glad nor sad.
+      hand_end(at) {
+        note(at, { freq: 392, gain: 0.06, attack: 0.01, decay: 0.26 });
+        note(at + 0.14, { freq: 329.63, gain: 0.055, attack: 0.01, decay: 0.34 });
+      },
+      match_end(at) {
+        [440, 392, 329.63].forEach((freq, index) => note(at + index * 0.2, { freq, gain: 0.07, attack: 0.01, decay: 0.5 }));
+      },
+      click(at) {
+        chip(at, 0.07);
+      }
+    };
+
+    function play(name, options = {}) {
+      if (muted || !context || !master || context.state !== 'running') return;
+      try {
+        VOICES[name](context.currentTime + 0.02 + (options.delay || 0), options);
+      } catch {
+        // A sound that cannot be made is skipped.
+      }
+    }
+
+    function setMuted(value) {
+      muted = Boolean(value);
+      try {
+        window.localStorage.setItem(STORE_KEY, muted ? '1' : '0');
+      } catch {
+        // Private windows may refuse storage; the switch still works until the page is closed.
+      }
+    }
+
+    return { play, wake, setMuted, isMuted: () => muted };
+  })();
+
+  function drawMute() {
+    const on = !sound.isMuted();
+    $('mute').setAttribute('aria-checked', String(on));
+    $('mute').lastElementChild.textContent = on ? 'On' : 'Off';
+  }
+
+  // `downKey` names the same card face down; when that one was on the table, this card only turns over.
+  function cardNode(code, key, index, downKey = null) {
+    const node = el('div', 'card');
+    if (code) {
+      const rank = code[0] === 'T' ? '10' : code[0];
+      if (code[1] === 'h' || code[1] === 'd') node.classList.add('red');
+      const corner = el('div', 'corner', rank);
+      corner.append(el('i', '', SUIT[code[1]]));
+      node.append(corner, el('div', 'pip', SUIT[code[1]]));
+      node.setAttribute('aria-label', `${rank} ${SUIT[code[1]]}`);
+    } else {
+      node.classList.add('back');
+      node.setAttribute('aria-label', 'hidden card');
+    }
+    // Animate a card only the first time it appears: it slides in, and a face card then turns over.
+    if (!dealt.has(key)) {
+      dealt.add(key);
+      const turnsOnly = Boolean(code && downKey && downKey !== key && dealt.has(downKey));
+      if (!turnsOnly) {
+        node.classList.add('fresh');
+        node.style.setProperty('--deal-delay', `${Math.round(index * 110)}ms`);
+      }
+      if (code) {
+        node.classList.add('opening');
+        node.style.setProperty('--open-delay', `${Math.round(index * 110 + (turnsOnly ? 0 : 300))}ms`);
+      }
+    }
+    return node;
+  }
+
+  // Shows cards or empty board slots in order. A node whose key is unchanged stays where it is, so
+  // a redraw that comes while a card is still sliding in or turning over never cuts its motion short.
+  function placeCards(container, items) {
+    items.forEach(({ key, make }, position) => {
+      const current = container.children[position];
+      if (current?.dataset.key === key) return;
+      const node = make();
+      node.dataset.key = key;
+      if (current) current.replaceWith(node);
+      else container.append(node);
+    });
+    while (container.children.length > items.length) container.lastElementChild.remove();
+  }
+
+  function phrase(who, entry, high) {
+    const you = who === 'You';
+    const verb = word => (you ? word : `${word}s`);
+    if (entry.label === 'fold') return `${who} ${verb('fold')}`;
+    if (entry.label === 'check') return `${who} ${verb('check')}`;
+    if (entry.label === 'call') return `${who} ${verb('call')} ${chips(entry.amount)}`;
+    if (entry.label === 'all_in') return `${who} ${you ? 'go' : 'goes'} all-in for ${chips(entry.to)}`;
+    return high === 0 ? `${who} ${verb('bet')} ${chips(entry.to)}` : `${who} ${verb('raise')} to ${chips(entry.to)}`;
+  }
+
+  /* ---------- Start screen ---------- */
+
+  // A mode fixes which kinds of player may sit down: seat 0 first, then every other seat.
+  const MODES = [
+    { id: 'human_bots', sides: ['Human', 'Bots'], first: ['human'], rest: ['bot'], blurb: 'You play one to five plain odds bots. No account or key needed.' },
+    { id: 'human_agents', sides: ['Human', 'Agents'], first: ['human'], rest: ['agent'], blurb: 'You play AI players: Jev, Claude, Codex, or your own agent in an open seat.' },
+    { id: 'agents_agents', sides: ['Agents', 'Agents'], first: ['agent'], rest: ['agent'], blurb: 'AI players face each other. You watch every hand.' },
+    { id: 'agents_bots', sides: ['Agents', 'Bots'], first: ['agent'], rest: ['bot', 'agent'], blurb: 'AI players take on plain odds bots. You watch every hand. At least one of each must sit down.' },
+    // Shown only when the table runs with --lan. `sides[1]` null: a title with no "vs".
+    { id: 'friends', sides: ['Friends\' table', null], first: ['human', 'friend'], rest: ['friend', 'bot', 'agent'], blurb: 'Friends join from their own phone or laptop with a private link and see only their own cards. Bots and AI players can sit in too.' }
+  ];
+  // `picks` holds a player type for every seat. A seat held by a saved persona also has that persona's id in `personas`.
+  const setup = { open: false, auto: false, mode: null, count: DEFAULT_SEATS, picks: [], personas: [], models: [], reasoning: [], styles: [], notes: [], names: [], limit: null, drawn: null };
+  // The seed of the closed game that last sent this page back to the start screen.
+  let homeShown = null;
+
+  const typeOf = (view, id) => view.player_types.find(candidate => candidate.id === id) || null;
+  const modeOf = id => MODES.find(candidate => candidate.id === id) || null;
+  const maxSeats = view => Math.min(6, Math.max(2, Number(view.settings.max_seats) || 6));
+
+  /* ---------- Personas: the saved players ---------- */
+
+  const roster = { list: [], loaded: false, error: null, asked: false };
+
+  function personaOf(id) {
+    if (id === null || id === undefined) return null;
+    const saved = roster.list.find(persona => persona.id === String(id));
+    if (saved || roster.loaded) return saved || null;
+    // Before the list has arrived, a persona already sitting at the table can still be named.
+    const seated = state?.players.find(player => player.persona && String(player.persona.id) === String(id));
+    return seated ? { id: String(id), name: seated.persona.name, rating: seated.persona.rating, type: seated.type, model: seated.model, reasoning: seated.reasoning, style: seated.style?.id ?? null, style_note: seated.style_note } : null;
+  }
+
+  // One line that says how a persona plays: "Claude · sonnet · reasoning off · Aggressive".
+  function personaSummary(view, persona) {
+    const type = typeOf(view, persona.type);
+    const parts = [type?.name ?? String(persona.type)];
+    if (persona.model) parts.push(String(persona.model));
+    if (type?.reasoning && persona.reasoning === false) parts.push('reasoning off');
+    const style = (view.styles || []).find(candidate => candidate.id === persona.style);
+    if (style && style.id !== 'balanced') parts.push(style.name);
+    if (persona.style_note) parts.push(`"${persona.style_note}"`);
+    return parts.join(' · ');
+  }
+
+  // A persona may take a seat only where its kind of player may sit in the chosen mode.
+  function personaFits(view, mode, seat, persona) {
+    const type = typeOf(view, persona.type);
+    if (!type || (type.id === 'human' && seat !== 0)) return false;
+    return (seat === 0 ? mode.first : mode.rest).includes(type.category);
+  }
+
+  async function loadPersonas() {
+    if (!state?.personas_enabled) return;
+    roster.asked = true;
+    try {
+      const { ok, payload } = await request('GET', '/personas');
+      if (!ok || !Array.isArray(payload.personas)) throw new Error(payload.error || 'The server did not return the saved personas.');
+      roster.list = payload.personas
+        .filter(persona => persona && persona.id !== undefined && persona.id !== null)
+        .map((persona, index) => ({ ...persona, id: String(persona.id), name: String(persona.name ?? ''), rank: finite(persona.rank) ? Number(persona.rank) : index + 1 }))
+        .sort((a, b) => a.rank - b.rank);
+      roster.loaded = true;
+      roster.error = null;
+    } catch (error) {
+      roster.error = error instanceof TypeError ? LOST_CONTACT : String(error.message || error);
+    }
+    drawPersonaList();
+    drawBoard();
+    if (state) drawSetup(state);
+  }
+
+  // Which of the four modes describes a running game, if any (a game started elsewhere may fit none).
+  function modeFor(view) {
+    const kinds = view.players.map(player => typeOf(view, player.type)?.category ?? null);
+    const rest = kinds.slice(1);
+    if (kinds.length < 2) return null;
+    if (kinds.includes('friend')) return modeOf('friends');
+    if (kinds[0] === 'human' && rest.every(kind => kind === 'bot')) return modeOf('human_bots');
+    if (kinds[0] === 'human' && rest.every(kind => kind === 'agent')) return modeOf('human_agents');
+    if (kinds[0] === 'agent' && rest.every(kind => kind === 'agent')) return modeOf('agents_agents');
+    if (kinds[0] === 'agent' && rest.includes('bot') && rest.every(kind => kind === 'agent' || kind === 'bot')) return modeOf('agents_bots');
+    return null;
+  }
+
+  function optionsFor(view, mode, seat) {
+    const allowed = seat === 0 ? mode.first : mode.rest;
+    return allowed.flatMap(category => view.player_types.filter(type => type.category === category));
+  }
+
+  function defaultPick(view, mode, seat) {
+    const options = optionsFor(view, mode, seat);
+    const usable = options.filter(option => option.available);
+    if (!usable.length) return options[0]?.id ?? null;
+    if (usable[0].category !== 'agent') return usable[0].id;
+    // Spread the AI players around the table. An open seat is the default only when nothing else can play.
+    const hosted = usable.filter(option => option.id !== 'agent');
+    if (!hosted.length) return usable[0].id;
+    const turn = mode.first[0] === 'agent' ? seat : seat - 1;
+    return hosted[turn % hosted.length].id;
+  }
+
+  function resizeSetup(view, count) {
+    const mode = modeOf(setup.mode);
+    setup.count = count;
+    if (!mode) return;
+    setup.picks = Array.from({ length: count }, (_, seat) => setup.picks[seat] ?? defaultPick(view, mode, seat));
+    setup.personas = Array.from({ length: count }, (_, seat) => setup.personas[seat] ?? null);
+    setup.models =Array.from({ length: count }, (_, seat) => setup.models[seat] ?? '');
+    setup.reasoning = Array.from({ length: count }, (_, seat) => setup.reasoning[seat] ?? true);
+    setup.styles = Array.from({ length: count }, (_, seat) => setup.styles[seat] ?? 'balanced');
+    setup.notes = Array.from({ length: count }, (_, seat) => setup.notes[seat] ?? '');
+  }
+
+  function chooseMode(view, mode) {
+    setup.mode = mode.id;
+    setup.picks = [];
+    setup.personas = [];
+    setup.models = [];
+    setup.reasoning = [];
+    setup.styles = [];
+    setup.notes = [];
+    resizeSetup(view, Math.min(setup.count, maxSeats(view)));
+    drawSetup(view);
+  }
+
+  // Why the chosen table cannot be dealt, or null when it can.
+  function setupProblem(view, mode) {
+    const types = setup.picks.map(id => typeOf(view, id));
+    const blocked = types.find(type => !type || !type.available);
+    if (types.length < 2 || types.some(type => !type)) return 'Pick a player for every seat.';
+    if (blocked) return `${blocked.name} cannot play: ${blocked.unavailable_reason || 'not set up'}.`;
+    if (mode.id === 'agents_bots') {
+      const kinds = types.map(type => type.category);
+      if (!kinds.includes('bot')) return 'Give at least one seat to a bot.';
+      if (!kinds.includes('agent')) return 'Give at least one seat to an agent.';
+    }
+    if (mode.id === 'friends' && !types.some(type => type.id === 'friend')) return 'Give at least one seat to a friend.';
+    const badName = setup.picks.findIndex((pick, seat) => pick === 'friend' && (setup.names[seat] || '').trim() && !/^[\p{L}\p{N}][\p{L}\p{N} ._'-]{0,23}$/u.test((setup.names[seat] || '').trim()));
+    if (badName !== -1) return `Seat ${badName}: a friend's name is 1 to 24 letters, digits, spaces, dots, dashes or apostrophes.`;
+    const bad = setup.models.findIndex((model, seat) => model && !setup.personas[seat] && types[seat].models && !MODEL_PATTERN.test(model));
+    if (bad !== -1) return `Seat ${bad}: a model name is 1 to 64 letters, digits, dots, colons, dashes or underscores.`;
+    return null;
+  }
+
+  function setupNotes(view, mode) {
+    const notes = [];
+    const open = setup.picks.flatMap((pick, seat) => (pick === 'agent' ? [seat] : []));
+    if (open.length === 1) {
+      notes.push(`Seat ${open[0]} stays open for your own agent. Run "node examples/poker-agent.mjs --seat ${open[0]}" in a terminal, or have any agent read GET /seats/${open[0]}/view and answer POST /seats/${open[0]}/action.`);
+    } else if (open.length > 1) {
+      notes.push(`Seats ${listNames(open.map(String))} stay open for your own agents. For each seat N, run "node examples/poker-agent.mjs --seat N" in a terminal, or have any agent read GET /seats/N/view and answer POST /seats/N/action.`);
+    }
+    const friends = setup.picks.filter(pick => pick === 'friend').length;
+    if (friends && setup.picks[0] !== 'human') notes.push('You have no seat: you watch from this page, friends\' cards stay hidden until a showdown, and the friends deal each next hand themselves.');
+    if (friends) {
+      notes.push(`After you deal, the Invite window opens with ${friends === 1 ? 'your friend\'s private link' : 'each friend\'s private link'} to send; the Invite button at the top brings it back. The first hand starts at once, so a friend who has not opened their link yet checks or folds when their turn clock runs out.`);
+    }
+    // Player types the server marks as slow (a command-line tool that thinks for seconds).
+    const slow = [...new Set(setup.picks)].filter(id => typeOf(view, id)?.slow).map(id => typeOf(view, id)?.name ?? id);
+    if (slow.length) notes.push(`${listNames(slow)} ${slow.length === 1 ? 'plays through its command-line tool' : 'play through their command-line tools'} signed in on this computer. Each move takes several seconds.`);
+    if (slow.length && setup.limit > 0 && setup.limit <= 30000) notes.push(`${listNames(slow).replace(' and ', ' or ')} can take longer than ${Math.round(setup.limit / 1000)} s to think. A check, or a fold when checking is not allowed, is then played for them. Choose Long or Extra long, or switch reasoning off, to avoid that.`);
+    if (setup.limit === 0 && open.length) notes.push('With no turn limit the table waits for an open seat as long as it takes.');
+    const named = new Set();
+    for (let seat = 0; seat < setup.count; seat += 1) {
+      for (const option of optionsFor(view, mode, seat)) {
+        if (option.available || named.has(option.id)) continue;
+        named.add(option.id);
+        notes.push(`${option.name} is unavailable: ${option.unavailable_reason || 'not set up'}.`);
+      }
+    }
+    return notes;
+  }
+
+  function drawSetupNotes(view, mode) {
+    const notes = setupNotes(view, mode);
+    $('setup-notes').hidden = !notes.length;
+    fill($('setup-notes'), notes.map(text => el('li', '', text)));
+    const problem = setupProblem(view, mode);
+    $('deal').disabled = Boolean(problem);
+    $('deal-need').hidden = !problem;
+    $('deal-need').textContent = problem || '';
+    for (const input of $('rows').querySelectorAll('.combo input')) input.classList.toggle('bad', Boolean(input.value.trim()) && !MODEL_PATTERN.test(input.value.trim()));
+  }
+
+  function segment(label, pressed, onPick) {
+    const button = el('button', '', label);
+    button.type = 'button';
+    button.setAttribute('aria-pressed', String(pressed));
+    button.addEventListener('click', onPick);
+    return button;
+  }
+
+  /*
+   * A free-text model box with its own suggestion list. The list is a child of the same box as
+   * the input and is positioned against it, so it always opens directly under the input with the
+   * same left edge and width. When there is too little room under the input it opens above.
+   */
+  function modelBox({ key: seat, label, value, type, onChange }) {
+    const box = el('div', 'combo');
+    const input = el('input');
+    const list = el('ul', 'suggest');
+    let items = [];
+    let active = -1;
+    input.type = 'text';
+    input.placeholder = 'default';
+    input.maxLength = 64;
+    input.spellcheck = false;
+    input.autocomplete = 'off';
+    input.value = value || '';
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-label', label);
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    input.setAttribute('aria-controls', `suggest-${seat}`);
+    list.id = `suggest-${seat}`;
+    list.setAttribute('role', 'listbox');
+    list.hidden = true;
+
+    const isOpen = () => !list.hidden;
+    const close = () => {
+      list.hidden = true;
+      active = -1;
+      box.classList.remove('up');
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+    };
+    const mark = index => {
+      active = index;
+      items.forEach((item, position) => item.node.setAttribute('aria-selected', String(position === index)));
+      if (index >= 0) {
+        input.setAttribute('aria-activedescendant', items[index].node.id);
+        items[index].node.scrollIntoView({ block: 'nearest' });
+      } else {
+        input.removeAttribute('aria-activedescendant');
+      }
+    };
+    const choose = picked => {
+      input.value = picked;
+      close();
+      onChange(picked);
+    };
+    const open = filter => {
+      const typed = input.value.trim().toLowerCase();
+      const matches = type.models.filter(model => !filter || model.toLowerCase().includes(typed));
+      items = [];
+      const nodes = [];
+      if (!filter || !typed) {
+        const node = el('li', '', 'default');
+        node.append(el('small', '', 'let the tool decide'));
+        items.push({ value: '', node });
+        nodes.push(node);
+      }
+      for (const model of matches) {
+        const node = el('li', '', model);
+        items.push({ value: model, node });
+        nodes.push(node);
+      }
+      items.forEach((item, index) => {
+        item.node.id = `suggest-${seat}-${index}`;
+        item.node.setAttribute('role', 'option');
+        item.node.setAttribute('aria-selected', 'false');
+        item.node.addEventListener('click', () => choose(item.value));
+      });
+      if (!matches.length) nodes.push(el('li', 'none', type.models.length ? 'No suggestion matches. Any model name the tool accepts will do.' : 'No suggestions for this player. Type a model name, or leave it empty.'));
+      fill(list, nodes);
+      active = -1;
+      list.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+      // Open downward when the list fits under the input, otherwise upward; never taller than the room there is.
+      const rect = input.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom - 10;
+      const above = rect.top - 10;
+      const wanted = Math.min(220, list.scrollHeight + 2);
+      const up = below < wanted && above > below;
+      box.classList.toggle('up', up);
+      list.style.maxHeight = `${Math.max(72, Math.min(220, up ? above : below))}px`;
+    };
+
+    input.addEventListener('focus', () => open(false));
+    input.addEventListener('click', () => { if (!isOpen()) open(false); });
+    input.addEventListener('input', () => {
+      open(true);
+      onChange(input.value.trim());
+    });
+    input.addEventListener('blur', close);
+    input.addEventListener('keydown', event => {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (!isOpen()) open(false);
+        if (!items.length) return;
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        mark(active === -1 ? (step === 1 ? 0 : items.length - 1) : (active + step + items.length) % items.length);
+      } else if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        if (isOpen() && active >= 0) choose(items[active].value);
+        else close();
+      } else if (event.key === 'Escape' && isOpen()) {
+        // Escape closes the list only; it must not also close the dialog or the start screen around it.
+        event.preventDefault();
+        event.stopPropagation();
+        close();
+      }
+    });
+    // Keep the focus in the input while an entry is pressed, so the click lands before the list closes.
+    list.addEventListener('mousedown', event => event.preventDefault());
+    box.append(input, list);
+    return box;
+  }
+
+  function drawDials(view) {
+    const counts = [];
+    for (let count = 2; count <= maxSeats(view); count += 1) counts.push(count);
+    fill($('count'), counts.map(count => segment(String(count), count === setup.count, () => { resizeSetup(state, count); drawSetup(state); })));
+    // A limit set with --turn-limit that is not one of the named periods gets its own button, in order.
+    const limits = TURN_LIMITS.some(({ ms }) => ms === setup.limit) ? TURN_LIMITS : [...TURN_LIMITS, { ms: setup.limit, name: '' }].sort((a, b) => (a.ms || Infinity) - (b.ms || Infinity));
+    fill($('limit'), limits.map(({ ms, name }) => {
+      const label = ms === 0 ? name : `${name ? `${name} ` : ''}${Math.round(ms / 1000)} s`;
+      return segment(label, ms === setup.limit, () => { setup.limit = ms; drawSetup(state); });
+    }));
+  }
+
+  // Claude, Codex and OpenCode think before they answer. This switch asks the tool to answer straight away.
+  function reasoningSwitch({ label, on, onToggle }) {
+    const button = el('button', `reason ${on ? 'on' : 'off'}`);
+    button.type = 'button';
+    button.setAttribute('role', 'switch');
+    button.setAttribute('aria-checked', String(on));
+    button.setAttribute('aria-label', label);
+    button.append(el('span', 'caps', 'Reasoning'), el('b', '', on ? 'On' : 'Off'));
+    button.title = on ? 'The tool thinks before each move. Slower.' : 'The tool answers without thinking first. Much faster.';
+    button.addEventListener('click', () => onToggle(!on));
+    return button;
+  }
+
+  // A playing style: a preset, plus a free-text note for players that are a general model. `who` ends the labels: "seat 2", "the new persona".
+  function styleLine({ view, who, type, style, note: text, onStyle, onNote }) {
+    const line = el('div', 'style-line');
+    const picker = el('select');
+    picker.setAttribute('aria-label', `Playing style for ${who}`);
+    for (const candidate of view.styles || []) {
+      const node = el('option', '', candidate.id === 'balanced' ? 'Style: balanced' : `Style: ${candidate.name}`);
+      node.value = candidate.id;
+      node.title = candidate.description;
+      picker.append(node);
+    }
+    picker.value = style || 'balanced';
+    picker.addEventListener('change', () => onStyle(picker.value));
+    line.append(picker);
+    const chosen = (view.styles || []).find(candidate => candidate.id === picker.value);
+    if (type.style_notes) {
+      const note = el('input');
+      note.type = 'text';
+      note.maxLength = 200;
+      note.spellcheck = false;
+      note.placeholder = 'Style note in your own words (optional)';
+      note.setAttribute('aria-label', `Style note for ${who}`);
+      note.value = text || '';
+      // Typing must not rebuild the controls, so the note is stored without a redraw.
+      note.addEventListener('input', () => onNote(note.value));
+      line.append(note);
+    } else if (chosen && chosen.id !== 'balanced') {
+      line.append(el('span', 'hint', chosen.description));
+    }
+    return line;
+  }
+
+  function drawRows(view, mode) {
+    const rows = [];
+    for (let seat = 0; seat < setup.count; seat += 1) {
+      const row = el('div', 'row');
+      const where = el('div', 'where caps');
+      where.append(el('b', '', `Seat ${seat}`), document.createTextNode(seat === 0 ? 'bottom, nearest you' : ''));
+      const options = optionsFor(view, mode, seat);
+      // Saved personas that may sit here, without the ones already seated in another row.
+      const held = personaOf(setup.personas[seat]);
+      const elsewhere = new Set(setup.personas.filter((id, other) => id && other !== seat));
+      const saved = view.personas_enabled ? roster.list.filter(persona => personaFits(view, mode, seat, persona) && !elsewhere.has(persona.id)) : [];
+      if (held && !saved.includes(held)) saved.unshift(held);
+      const plain = option => {
+        const node = el('option', '', option.available ? option.name : `${option.name} (unavailable)`);
+        node.value = option.id;
+        node.disabled = !option.available;
+        return node;
+      };
+      let picker;
+      if (options.length === 1 && !saved.length) {
+        picker = el('div', 'fixed', options[0].name);
+      } else {
+        picker = el('select');
+        picker.setAttribute('aria-label', `Player for seat ${seat}`);
+        if (saved.length) {
+          const mine = el('optgroup');
+          mine.label = 'Personas';
+          for (const persona of saved) {
+            const usable = Boolean(typeOf(view, persona.type)?.available);
+            const node = el('option', '', `${persona.name} · ${skill(persona.rating)}${usable ? '' : ' (unavailable)'}`);
+            node.value = `persona:${persona.id}`;
+            node.disabled = !usable && persona !== held;
+            mine.append(node);
+          }
+          const others = el('optgroup');
+          others.label = 'Players';
+          others.append(...options.map(plain));
+          picker.append(mine, others);
+        } else {
+          picker.append(...options.map(plain));
+        }
+        picker.value = held ? `persona:${held.id}` : setup.picks[seat];
+        picker.addEventListener('change', () => {
+          const persona = picker.value.startsWith('persona:') ? personaOf(picker.value.slice('persona:'.length)) : null;
+          setup.personas[seat] = persona ? persona.id : null;
+          setup.picks[seat] = persona ? persona.type : picker.value;
+          setup.models[seat] = '';
+          setup.reasoning[seat] = true;
+          setup.styles[seat] = 'balanced';
+          setup.notes[seat] = '';
+          drawSetup(state);
+        });
+      }
+      const type = typeOf(view, setup.picks[seat]);
+      if (type?.id === 'friend') {
+        // The friend's name, shown at the table and on their own page.
+        const name = el('input', 'name-box');
+        name.type = 'text';
+        name.maxLength = 24;
+        name.placeholder = 'Friend\'s name';
+        name.autocomplete = 'off';
+        name.spellcheck = false;
+        name.value = setup.names[seat] || '';
+        name.setAttribute('aria-label', `Name of the friend in seat ${seat}`);
+        name.addEventListener('input', () => {
+          setup.names[seat] = name.value;
+          drawSetupNotes(state, modeOf(setup.mode));
+        });
+        row.append(where, picker, name);
+        rows.push(row);
+        continue;
+      }
+      if (held) {
+        // A persona brings its own model, reasoning and style: the row shows them instead of asking.
+        const line = el('div', 'persona-line', personaSummary(view, held));
+        line.title = line.textContent;
+        row.append(where, picker, line);
+      } else {
+        const model = type?.models ? modelBox({ key: seat, label: `Model for seat ${seat}`, value: setup.models[seat], type, onChange: value => { setup.models[seat] = value; drawSetupNotes(state, modeOf(setup.mode)); } }) : el('div');
+        const reasoning = type?.reasoning ? reasoningSwitch({ label: `Reasoning for seat ${seat}`, on: setup.reasoning[seat] !== false, onToggle: on => { setup.reasoning[seat] = on; drawSetup(state); } }) : el('div');
+        row.append(where, picker, model, reasoning);
+        if (type?.styles) row.append(styleLine({ view, who: `seat ${seat}`, type, style: setup.styles[seat], note: setup.notes[seat], onStyle: value => { setup.styles[seat] = value; drawSetup(state); }, onNote: value => { setup.notes[seat] = value; } }));
+      }
+      rows.push(row);
+    }
+    fill($('rows'), rows);
+  }
+
+  // A persona that was deleted, or that may not sit where it was put, gives its seat back to a plain player.
+  function dropLostPersonas(view, mode) {
+    if (!roster.loaded) return;
+    setup.personas.forEach((id, seat) => {
+      if (!id) return;
+      const persona = personaOf(id);
+      const twice = setup.personas.indexOf(id) !== seat;
+      if (persona && !twice && personaFits(view, mode, seat, persona)) {
+        setup.picks[seat] = persona.type;
+        return;
+      }
+      setup.personas[seat] = null;
+      setup.picks[seat] = defaultPick(view, mode, seat);
+    });
+  }
+
+  function drawSetup(view) {
+    if (GUEST) {
+      $('setup').hidden = true;
+      return;
+    }
+    const idle = view.status === 'idle';
+    const closed = view.status === 'match_over' && view.match?.stop_reason === 'closed';
+    // With no game yet the chooser opens by itself; it steps aside once a game exists, wherever it was started.
+    // A closed game goes back to this start screen once, fresh as on a new table, on every page of the
+    // host's; "Back to the table" then shows the closed game and its summary.
+    if (closed && homeShown !== view.seed) {
+      homeShown = view.seed;
+      Object.assign(setup, { mode: null, picks: [], personas: [], models: [], reasoning: [], styles: [], notes: [], names: [], drawn: null });
+      $('setup-error').hidden = true;
+      setup.open = true;
+      setup.auto = true;
+    } else if (idle) {
+      setup.open = true;
+      setup.auto = true;
+    } else if (setup.auto && !closed) {
+      setup.open = false;
+      setup.auto = false;
+    }
+    $('setup').hidden = !setup.open;
+    if (!setup.open) return;
+    $('setup-personas').hidden = !view.personas_enabled;
+    $('setup-board').hidden = !view.personas_enabled;
+    $('setup-games').hidden = !view.history_enabled;
+    if (setup.limit === null) setup.limit = Number.isFinite(view.settings.turn_limit_ms) ? view.settings.turn_limit_ms : DEFAULT_TURN_LIMIT;
+    const mode = modeOf(setup.mode);
+    if (!$('modes').children.length) {
+      fill($('modes'), MODES.filter(candidate => candidate.id !== 'friends' || view.lan?.enabled || view.tunnel?.enabled).map((candidate, index) => {
+        const button = el('button', 'mode');
+        button.type = 'button';
+        button.style.setProperty('--i', index);
+        button.dataset.mode = candidate.id;
+        button.setAttribute('aria-label', `${candidate.sides[1] ? `${candidate.sides[0]} vs ${candidate.sides[1]}` : candidate.sides[0]}. ${candidate.blurb}`);
+        const title = el('strong', '', candidate.sides[0]);
+        if (candidate.sides[1]) title.append(el('i', '', 'vs'), document.createTextNode(candidate.sides[1]));
+        button.append(title, el('span', '', candidate.blurb));
+        button.addEventListener('click', () => chooseMode(state, candidate));
+        return button;
+      }));
+    }
+    $('modes').classList.toggle('picked', Boolean(mode));
+    for (const button of $('modes').children) button.setAttribute('aria-pressed', String(button.dataset.mode === setup.mode));
+    $('mode-blurb').hidden = !mode;
+    $('mode-blurb').textContent = mode ? mode.blurb : '';
+    $('config').hidden = !mode;
+    $('deal').hidden = !mode;
+    $('setup-close').hidden = idle;
+    if (!mode) {
+      $('setup-notes').hidden = true;
+      $('deal-need').hidden = true;
+      return;
+    }
+    // Rows are rebuilt only when a choice changes; a state ping must not wipe a half-typed model name.
+    dropLostPersonas(view, mode);
+    const saved = view.personas_enabled ? roster.list.map(persona => [persona.id, persona.name, persona.rating, persona.type, persona.model, persona.reasoning, persona.style, persona.style_note]) : null;
+    const drawn = JSON.stringify([setup.mode, setup.count, setup.picks, setup.personas, setup.reasoning, setup.styles, setup.limit, view.player_types, view.settings.max_seats, saved]);
+    if (drawn !== setup.drawn) {
+      setup.drawn = drawn;
+      drawDials(view);
+      drawRows(view, mode);
+    }
+    drawSetupNotes(view, mode);
+  }
+
+  /* ---------- Table ---------- */
+
+  const table = { key: null, seats: [] };
+
+  function clockNode() {
+    const clock = el('span', 'clock');
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 20 20');
+    svg.setAttribute('aria-hidden', 'true');
+    const circle = name => {
+      const node = document.createElementNS(SVG_NS, 'circle');
+      node.setAttribute('class', name);
+      node.setAttribute('cx', '10');
+      node.setAttribute('cy', '10');
+      node.setAttribute('r', '8');
+      return node;
+    };
+    const arc = circle('arc');
+    svg.append(circle('track'), arc);
+    const elapsed = el('span', 'elapsed');
+    const limit = el('span', 'limit');
+    clock.append(svg, elapsed, limit);
+    return { clock, arc, elapsed, limit };
+  }
+
+  // Seat 0 sits at the bottom centre; the others follow clockwise, evenly spread for the player count.
+  function seatNode(seat, count) {
+    const angle = Math.PI / 2 + (2 * Math.PI * seat) / count;
+    const c = Math.round(Math.cos(angle) * 1e4) / 1e4;
+    const s = Math.round(Math.sin(angle) * 1e4) / 1e4;
+    const root = el('div', 'seat');
+    root.dataset.seat = String(seat);
+    root.classList.toggle('hero', seat === 0);
+    root.classList.toggle('roomy', seat !== 0 && count === 2);
+    root.classList.toggle('flip', s < -0.25);
+    root.classList.toggle('east', c > 0.3);
+    root.style.setProperty('--c', String(c));
+    root.style.setProperty('--s', String(s));
+    root.style.setProperty('--x', `${50 + 50 * c}%`);
+    root.style.setProperty('--y', `${50 + 50 * s}%`);
+
+    const hole = el('div', 'hole');
+    const dealer = el('span', 'pin dealer', 'D');
+    dealer.title = 'Dealer button';
+    const blind = el('span', 'pin blind');
+    const cards = el('div', 'cards');
+    const stamp = el('span', 'stamp');
+    const handname = el('div', 'handname');
+    const pins = el('div', 'pins');
+    pins.append(dealer, blind);
+    hole.append(pins, cards, stamp, handname);
+
+    const plate = el('div', 'plate');
+    const name = el('div', 'name');
+    const rating = el('span', 'rating');
+    const who = el('div', 'who-row');
+    who.append(name, rating);
+    const line = el('div', 'line');
+    const stack = el('span', 'stack');
+    const avg = el('span', 'avg');
+    avg.title = 'Average reasoning time per decision';
+    const style = el('span', 'style');
+    line.append(stack, avg, style);
+    const tab = el('div', 'tab');
+    const { clock, arc, elapsed, limit } = clockNode();
+    const prize = el('span', 'prize');
+    tab.append(clock, prize);
+    const fuse = el('div', 'fuse');
+    plate.append(who, line, fuse, tab);
+
+    const bet = el('div', 'bet');
+    bet.addEventListener('animationend', () => bet.classList.remove('bump'));
+    // The arrow on the callout points back at the seat it speaks for.
+    const side = Math.abs(s) >= Math.abs(c) * 0.75 ? (s > 0 ? 'to-bottom' : 'to-top') : (c > 0 ? 'to-right' : 'to-left');
+    const alert = el('div', `alert ${side}`);
+    alert.setAttribute('role', 'status');
+    alert.setAttribute('aria-live', 'polite');
+    const callout = el('div', 'callout');
+    alert.append(callout);
+    root.append(hole, plate, bet, alert);
+    return { root, dealer, blind, cards, stamp, handname, name, rating, stack, avg, style, tab, clock, arc, elapsed, limit, prize, fuse, bet, callout, speaking: null };
+  }
+
+  function buildSeats(view) {
+    const key = `${view.seed}:${view.players.length}`;
+    if (table.key === key) return;
+    for (const ui of table.seats) clearTimeout(ui.speaking);
+    table.key = key;
+    table.seats = view.players.map((_, seat) => seatNode(seat, view.players.length));
+    $('stage').dataset.seats = String(view.players.length);
+    fill($('seats'), table.seats.map(ui => ui.root));
+  }
+
+  // Seats that get the gold treatment: whoever took a pot in the hand, or the winner of the match.
+  function goldSeats(view) {
+    if (view.status === 'match_over') return isSeat(view.match?.winner_seat) ? [view.match.winner_seat] : [];
+    const result = view.hand?.result;
+    if (!result) return [];
+    if (Array.isArray(result.winners)) return result.winners;
+    return isSeat(result.winner) ? [result.winner] : [];
+  }
+
+  function isLive(view) {
+    return Boolean(view.hand) && isSeat(view.hand.acting) && (view.status === 'thinking' || view.status === 'your_turn');
+  }
+
+  function drawSeat(view, seat, gold) {
+    const ui = table.seats[seat];
+    const hand = view.hand;
+    const player = view.players[seat];
+    const matchOver = view.status === 'match_over';
+    const result = hand?.result ?? null;
+    const dealtIn = Boolean(hand) && (Array.isArray(hand.dealt_in) ? Boolean(hand.dealt_in[seat]) : true);
+    const folded = dealtIn && Boolean(hand.folded?.[seat]);
+    const faces = dealtIn ? (hand.cards?.[seat] ?? null) : null;
+    const acting = isLive(view) && hand.acting === seat;
+    const winner = gold.includes(seat);
+
+    ui.name.textContent = player.name;
+    const styled = player.style && player.style.id !== 'balanced';
+    ui.style.textContent = styled ? player.style.name : (player.style_note ? 'own style' : '');
+    ui.style.title = player.style_note ? `Style note: ${player.style_note}` : '';
+    ui.name.title = player.name;
+    // A saved persona shows its skill rating beside its name.
+    ui.rating.textContent = player.persona && finite(player.persona.rating) ? skill(player.persona.rating) : '';
+    ui.rating.title = player.persona ? `Skill rating of ${player.name}` : '';
+    const stack = (matchOver ? view.match?.final_stacks?.[seat] : undefined) ?? hand?.stacks?.[seat] ?? view.settings.stack;
+    fill(ui.stack, [document.createTextNode(chips(stack)), el('small', '', 'chips')]);
+    const think = player.think;
+    ui.avg.textContent = think && think.count > 0 && Number.isFinite(think.mean_ms) ? `avg ${took(think.mean_ms)}` : '';
+
+    ui.root.classList.toggle('acting', acting);
+    ui.root.classList.toggle('folded', folded);
+    ui.root.classList.toggle('out', Boolean(hand) && !dealtIn);
+    ui.root.classList.toggle('allin', dealtIn && !folded && !result && Boolean(hand.all_in?.[seat]));
+    ui.root.classList.toggle('winner', winner);
+    ui.stamp.textContent = !hand ? '' : (!dealtIn ? 'Out' : (folded ? 'Folded' : (ui.root.classList.contains('allin') ? 'All-in' : '')));
+    ui.dealer.hidden = !hand || hand.button_seat !== seat;
+    const blind = !hand ? '' : (hand.small_blind_seat === seat ? 'SB' : (hand.big_blind_seat === seat ? 'BB' : ''));
+    ui.blind.hidden = !blind;
+    ui.blind.textContent = blind;
+    ui.blind.title = blind === 'SB' ? 'Small blind' : 'Big blind';
+
+    const prefix = hand ? `${view.seed}:${hand.number}` : '';
+    const cardKey = (index, up) => `${prefix}:${seat}:${index}:${up ? 'up' : 'down'}`;
+    placeCards(ui.cards, dealtIn ? [0, 1].map(index => {
+      const key = cardKey(index, Boolean(faces));
+      return { key, make: () => cardNode(faces ? faces[index] : null, key, seat * 0.4 + index, cardKey(index, false)) };
+    }) : []);
+    ui.handname.textContent = faces && !folded ? (hand.hand_names?.[seat] || '') : '';
+    ui.bet.textContent = hand && hand.bets?.[seat] > 0 ? chips(hand.bets[seat]) : '';
+
+    // The tag on the plate: a running clock while acting, the chips won after the hand, a ribbon after the match.
+    ui.tab.classList.toggle('ticking', acting);
+    ui.tab.classList.toggle('ribbon', !acting && winner && matchOver);
+    ui.tab.classList.toggle('gain', !acting && winner && !matchOver);
+    if (!acting) {
+      ui.tab.classList.remove('urgent');
+      const net = result?.net?.[seat] ?? 0;
+      ui.prize.textContent = !winner ? '' : (matchOver ? 'Winner' : (net > 0 ? signed(net) : 'Split'));
+    }
+  }
+
+  // Runs ten times a second: the stopwatch on the acting seat, and the ring that empties toward the deadline.
+  const turnSeen = { key: null, at: 0 };
+  function tick() {
+    const view = state;
+    if (!view || !isLive(view)) return;
+    const hand = view.hand;
+    const ui = table.seats[hand.acting];
+    if (!ui) return;
+    const key = `${view.seed}:${hand.number}:${hand.log.length}:${hand.acting}`;
+    if (turnSeen.key !== key) {
+      turnSeen.key = key;
+      turnSeen.at = Date.now();
+    }
+    const started = Number.isFinite(hand.turn_started_at) ? hand.turn_started_at : turnSeen.at;
+    const now = Date.now();
+    ui.elapsed.textContent = seconds(now - started);
+    if (Number.isFinite(hand.deadline) && hand.deadline > started) {
+      const total = hand.deadline - started;
+      const left = Math.max(0, hand.deadline - now);
+      const urgent = left <= URGENT_MS;
+      ui.clock.classList.remove('open');
+      ui.arc.style.strokeDasharray = String(RING_LENGTH);
+      ui.arc.style.strokeDashoffset = String(RING_LENGTH * (1 - left / total));
+      ui.limit.textContent = `/ ${Math.round(total / 1000)} s`;
+      ui.tab.classList.toggle('urgent', urgent);
+      ui.tab.title = `${Math.ceil(left / 1000)} s left`;
+      ui.fuse.classList.add('lit');
+      ui.fuse.classList.toggle('hot', urgent);
+      ui.fuse.style.width = `${(100 * left) / total}%`;
+      // One quiet tick for each of the last five seconds, a little clearer when the turn is yours.
+      if (urgent && left > 0) {
+        const second = `${key}:${Math.ceil(left / 1000)}`;
+        if (heard.tick !== second) {
+          heard.tick = second;
+          sound.play('tick', { own: view.status === 'your_turn' });
+        }
+      }
+      // The person at the page gets the last ten seconds spelled out under the status line.
+      if (view.status === 'your_turn') {
+        const near = left <= 2 * URGENT_MS;
+        const safe = hand.legal_actions.some(action => action.label === 'check') ? 'A check' : 'A fold';
+        $('substatus').hidden = !near;
+        $('substatus').classList.toggle('hot', urgent);
+        if (near) $('substatus').textContent = `${Math.ceil(left / 1000)} s left. ${safe} is played for you when the clock runs out.`;
+      }
+    } else {
+      ui.clock.classList.add('open');
+      ui.arc.style.strokeDasharray = `${RING_LENGTH * 0.3} ${RING_LENGTH * 0.7}`;
+      ui.arc.style.strokeDashoffset = '0';
+      ui.limit.textContent = '';
+      ui.tab.classList.remove('urgent');
+      ui.tab.title = 'No turn limit';
+      ui.fuse.classList.remove('lit', 'hot');
+    }
+  }
+
+  /* ---------- Log, results and side panels ---------- */
+
+  // Walks the hand's actions once, tracking the highest bet of the street so "bet" and "raise" read correctly.
+  function logItems(view) {
+    const items = [];
+    let street = null;
+    let high = view.settings.big_blind;
+    for (const entry of view.hand.log) {
+      if (entry.street !== street) {
+        if (street !== null) high = 0;
+        street = entry.street;
+        items.push({ street });
+      }
+      items.push({ entry, text: phrase(view.players[entry.seat].name, entry, high), short: phrase('', entry, high).trim() });
+      high = Math.max(high, entry.to);
+    }
+    return items;
+  }
+
+  // One line per pot: "Main pot 300: Jev", "Side pot 800: Claude". A pot only one player could win is that player's unmatched bet coming back.
+  function potLines(view) {
+    const result = view.hand.result;
+    const pots = Array.isArray(result.pots) ? result.pots : [];
+    const contested = pots.filter(pot => result.reason === 'fold' || pot.eligible.length > 1);
+    return pots.map(pot => {
+      const who = listNames(pot.winners.map(seat => view.players[seat].name));
+      const index = contested.indexOf(pot);
+      if (index === -1) return { text: `${chips(pot.amount)} returned to ${who}`, won: false };
+      let title = 'Pot';
+      if (contested.length > 1) title = index === 0 ? 'Main pot' : (contested.length > 2 ? `Side pot ${index}` : 'Side pot');
+      return { text: `${title} ${chips(pot.amount)}: ${who}${pot.winners.length > 1 ? ' (split)' : ''}`, won: true };
+    });
+  }
+
+  function drawLog(view, items) {
+    const nodes = items.map(item => {
+      if (!item.entry) return el('li', 'street', item.street === 'preflop' ? 'Before the flop' : item.street);
+      const node = el('li', `s${item.entry.seat}`, item.text);
+      if (Number.isFinite(item.entry.think_ms)) node.append(el('span', 'took', ` · ${took(item.entry.think_ms)}`));
+      if (item.entry.timed_out) node.append(el('span', 'late', ' · timed out'));
+      return node;
+    });
+    if (view.hand.result) {
+      nodes.push(el('li', 'street', 'Result'));
+      const lines = potLines(view);
+      if (lines.length) for (const line of lines) nodes.push(el('li', line.won ? 'won' : '', line.text));
+      else nodes.push(el('li', 'won', resultText(view)));
+    }
+    const log = $('log');
+    const grew = log.childElementCount !== nodes.length;
+    fill(log, nodes);
+    if (grew) log.scrollTop = log.scrollHeight;
+  }
+
+  function restart(node, className) {
+    node.classList.remove(className);
+    void node.offsetWidth;
+    node.classList.add(className);
+  }
+
+  // Motion alert for every action taken by a player other than the person at the page.
+  const seen = { key: null, count: 0 };
+  function announceActions(view, items) {
+    const key = `${view.seed}:${view.hand.number}`;
+    const actions = items.filter(item => item.entry);
+    // First sight of a hand already under way: do not replay its history.
+    if (seen.key === null) seen.count = actions.length;
+    else if (seen.key !== key) seen.count = 0;
+    seen.key = key;
+    const fresh = actions.slice(seen.count);
+    seen.count = actions.length;
+    for (const { entry, short } of fresh) {
+      const ui = table.seats[entry.seat];
+      if (!ui) continue;
+      if (entry.amount > 0 && ui.bet.textContent) restart(ui.bet, 'bump');
+      if (view.players[entry.seat].type === 'human') continue;
+      ui.callout.textContent = entry.timed_out ? `${short} · timed out` : short;
+      ui.callout.classList.toggle('fold', entry.label === 'fold');
+      ui.callout.classList.toggle('raise', ['raise_small', 'raise_large', 'all_in'].includes(entry.label));
+      ui.callout.classList.toggle('allin', entry.label === 'all_in');
+      restart(ui.callout, 'show');
+      restart(ui.root, 'pulse');
+      // Lift the speaking seat above its neighbours while its callout is on screen.
+      clearTimeout(ui.speaking);
+      ui.root.classList.add('speaking');
+      ui.speaking = setTimeout(() => ui.root.classList.remove('speaking'), ALERT_MS);
+    }
+  }
+
+  /*
+   * Sound for what is new in a state. Like the motion alerts, it remembers what it has already
+   * met: a state ping that changes nothing is silent, and the first state a page sees (a hand
+   * already under way, a match already over) only fills the memory and plays nothing.
+   */
+  const heard = { primed: false, hand: null, actions: 0, board: 0, result: null, turn: null, match: null, tick: null };
+  const ACTION_VOICE = { fold: ['fold'], check: ['check'], call: ['call'], raise_small: ['raise', { large: false }], raise_large: ['raise', { large: true }], all_in: ['all_in'] };
+  function hearState(view) {
+    const hand = view.hand;
+    const quiet = !heard.primed;
+    heard.primed = true;
+    const handKey = hand ? `${view.seed}:${hand.number}` : null;
+    const log = hand?.log ?? [];
+    const board = hand?.board ?? [];
+    let delay = 0;
+    const play = (name, options, length) => {
+      if (!quiet) sound.play(name, { ...options, delay });
+      delay += length;
+    };
+
+    if (heard.hand !== handKey) {
+      heard.hand = handKey;
+      heard.actions = quiet ? log.length : 0;
+      heard.board = quiet ? board.length : 0;
+      if (hand) play('deal', { cards: view.players.length }, 0.1 + 0.085 * Math.min(6, view.players.length));
+    }
+    // Several actions in one state (a slow connection) are played in order; a long backlog keeps only its end.
+    const fresh = log.slice(heard.actions).slice(-3);
+    heard.actions = log.length;
+    for (const entry of fresh) {
+      const [name, options] = ACTION_VOICE[entry.label] || [];
+      if (name) play(name, options, entry.label === 'all_in' ? 0.5 : 0.3);
+    }
+    if (board.length > heard.board) play('deal', { cards: board.length - heard.board }, 0.1 + 0.085 * (board.length - heard.board));
+    heard.board = board.length;
+
+    if (hand?.result && heard.result !== handKey) {
+      heard.result = handKey;
+      const winners = goldSeats({ ...view, status: 'hand_over' });
+      if (view.spectator) play(winners.length ? 'win' : 'hand_end', { soft: true }, 0.6);
+      else play(winners.includes(0) ? 'win' : 'hand_end', {}, 0.6);
+    }
+    if (view.status === 'your_turn' && hand) {
+      const turn = `${handKey}:${log.length}`;
+      if (heard.turn !== turn) {
+        heard.turn = turn;
+        play('turn', {}, 0.4);
+      }
+    }
+    if (view.status === 'match_over' && view.match) {
+      const match = `match:${view.seed}`;
+      if (heard.match !== match) {
+        heard.match = match;
+        const lead = view.match.winner_seat;
+        play(isSeat(lead) && (view.spectator || lead === 0) ? 'match_win' : 'match_end', {}, 1);
+      }
+    }
+  }
+
+  function decisionRow(decision, isJev) {
+    const row = el('div', 'row');
+    const head = el('div', 'head');
+    const facts = [];
+    if (decision.source === 'jev' && Number.isFinite(Number(decision.confidence))) facts.push(`confidence ${Number(decision.confidence).toFixed(2)}`);
+    if (Number.isFinite(decision.think_ms)) facts.push(took(decision.think_ms));
+    head.append(el('span', '', `${decision.street} · ${String(decision.label).replace('_', ' ')}`), el('span', '', facts.join(' · ')));
+    row.append(head);
+    if (decision.source === 'jev') {
+      const bar = el('div', 'bar');
+      const inner = el('i');
+      inner.style.width = `${Math.round(decision.confidence * 100)}%`;
+      bar.append(inner);
+      row.append(bar);
+    }
+    if (decision.source === 'fallback') {
+      let what = `Rule bot stepped in (${String(decision.reason).replace('_', ' ')}).`;
+      if (decision.reason === 'timeout') what = 'No answer in time, so a safe action was played.';
+      else if (decision.reason === 'error') what = 'The player could not answer, so the rule bot played.';
+      else if (decision.jev_choice) what += ` Jev leaned ${decision.jev_choice.replace('_', ' ')} at ${Number(decision.confidence).toFixed(2)}.`;
+      row.append(el('div', 'note stepped', what));
+    }
+    if (decision.source === 'agent' && decision.note) row.append(el('div', 'note', `Note: ${decision.note}`));
+    if (decision.source === 'forced') row.append(el('div', 'note', 'Only one action was legal.'));
+    // A note an add-on adds about one of its own players' moves.
+    for (const extension of extensions) {
+      const note = extension.decisionNote?.(decision);
+      if (typeof note === 'string' && note) row.append(el('div', 'note', note));
+    }
+    if (decision.model) row.append(el('div', 'note', decision.source === 'fallback' ? `${decision.model} was asked.` : `Answered by ${decision.model}.`));
+    if (isJev && decision.hand_strength) {
+      const price = String(decision.calling_on_the_numbers).startsWith('not applicable') ? 'nothing to call' : `calling ${decision.calling_on_the_numbers}`;
+      row.append(el('div', 'note', `Saw: ${decision.hand_strength} hand, ${price}.`));
+    }
+    return row;
+  }
+
+  function drawChoices(view) {
+    const decisions = view.hand.decisions;
+    if (!decisions) {
+      fill($('think'), [el('p', 'hint', 'Hidden until the hand ends.')]);
+      return;
+    }
+    const nodes = [];
+    view.players.forEach((player, seat) => {
+      const own = decisions[seat];
+      if (!own) return;
+      nodes.push(el('h3', '', player.name));
+      if (!own.length) nodes.push(el('p', 'hint', 'Nothing to decide this hand.'));
+      for (const decision of own) nodes.push(decisionRow(decision, player.type === 'jev'));
+    });
+    if (!nodes.length) nodes.push(el('p', 'hint', 'No recorded choices this hand.'));
+    fill($('think'), nodes);
+  }
+
+  // One row per player: decisions counted, average, longest and total reasoning time.
+  function drawTimes(view) {
+    if (!view.players.length) {
+      fill($('times'), [el('p', 'hint', 'Starts when the first hand is dealt.')]);
+      return;
+    }
+    const cells = ['Player', 'Moves', 'Avg', 'Longest', 'Total'].map((text, index) => el('span', index ? 'head num' : 'head', text));
+    const acting = isLive(view) ? view.hand.acting : null;
+    view.players.forEach((player, seat) => {
+      const think = player.think || { count: 0 };
+      const tone = seat === acting ? ' now' : (think.count ? '' : ' quiet');
+      const who = el('span', `who${tone}`, player.name);
+      who.title = player.name;
+      const time = value => (think.count && Number.isFinite(value) ? took(value) : '–');
+      cells.push(who, el('span', `num${tone}`, String(think.count || 0)), el('span', `num${tone}`, time(think.mean_ms)), el('span', `num${tone}`, time(think.max_ms)), el('span', `num${tone}`, time(think.total_ms)));
+    });
+    fill($('times'), cells);
+  }
+
+  function drawScore(view, gold) {
+    const hand = view.hand;
+    const matchOver = view.status === 'match_over';
+    const net = (matchOver ? view.match?.net : null) ?? view.totals?.net ?? view.players.map(() => 0);
+    const stacks = (matchOver ? view.match?.final_stacks : null) ?? hand?.stacks ?? view.players.map(() => view.settings.stack);
+    $('played').textContent = String((matchOver ? view.match?.hands_played : null) ?? view.totals?.hands_played ?? 0);
+    const tile = $('net');
+    const detail = $('net-detail');
+    detail.hidden = true;
+    if (view.spectator && view.players.length) {
+      const most = Math.max(...stacks);
+      const leaders = view.players.filter((_, seat) => stacks[seat] === most);
+      $('net-label').textContent = matchOver && leaders.length === 1 ? 'Winner' : 'Chip leader';
+      // A long seat name such as "OpenCode · openai/gpt-6.1-sol · fast" shows the player large and the model below.
+      const [player, ...rest] = leaders.length === 1 ? leaders[0].name.split(' · ') : ['Level'];
+      tile.textContent = player;
+      tile.title = leaders.length === 1 ? leaders[0].name : '';
+      detail.textContent = rest.join(' · ');
+      detail.title = detail.textContent;
+      detail.hidden = !rest.length;
+      tile.className = '';
+    } else {
+      $('net-label').textContent = 'Your result';
+      tile.textContent = signed(net[0] ?? 0);
+      tile.title = '';
+      tile.className = net[0] > 0 ? 'up' : (net[0] < 0 ? 'down' : '');
+    }
+    $('standings').hidden = !view.players.length;
+    const cells = ['Player', 'Chips', 'Result'].map((text, index) => el('span', index ? 'head num' : 'head', text));
+    view.players.forEach((player, seat) => {
+      const lead = matchOver && gold.includes(seat) ? ' lead' : '';
+      const who = el('span', `who${lead}`, player.name);
+      who.title = player.name;
+      const change = el('span', `num${net[seat] > 0 ? ' up' : (net[seat] < 0 ? ' down' : '')}`, signed(net[seat] ?? 0));
+      cells.push(who, el('span', `num${lead}`, chips(stacks[seat])), change);
+    });
+    fill($('standings'), cells);
+  }
+
+  function resultText(view) {
+    const hand = view.hand;
+    const result = hand.result;
+    const names = view.players.map(player => player.name);
+    const winners = goldSeats({ ...view, status: 'hand_over' });
+    const pots = Array.isArray(result.pots) ? result.pots : [];
+    const contested = pots.filter(pot => pot.eligible.length > 1);
+    const won = result.reason === 'fold' || !contested.length ? result.pot : contested.reduce((total, pot) => total + pot.amount, 0);
+    if (!winners.length) return `Hand over. Pot of ${chips(result.pot)}.`;
+    const who = listNames(winners.map(seat => names[seat]));
+    const verb = (subject, word) => (subject === 'You' || winners.length > 1 ? word : `${word}s`);
+    if (result.reason === 'fold') {
+      if (names.length === 2) {
+        const loser = names.find((_, seat) => seat !== winners[0]);
+        return `${loser} ${loser === 'You' ? 'fold' : 'folds'}. ${who} ${verb(who, 'win')} ${chips(won)}.`;
+      }
+      return `${who} ${verb(who, 'win')} ${chips(won)}. Everyone else folded.`;
+    }
+    if (winners.length === 1) {
+      const made = hand.hand_names?.[winners[0]];
+      return `${who} ${verb(who, 'win')} ${chips(won)}${made ? ` with ${made}` : ''}.`;
+    }
+    if (contested.length > 1) return `${who} take the pots.`;
+    return `Split pot of ${chips(won)}: ${who}.`;
+  }
+
+  function matchText(view) {
+    const match = view.match;
+    const names = view.players.map(player => player.name);
+    const played = `${match.hands_played} ${match.hands_played === 1 ? 'hand' : 'hands'}`;
+    const lead = match.winner_seat;
+    const stacks = match.final_stacks ?? view.hand?.stacks ?? [];
+    let text = isSeat(lead)
+      ? `Match over after ${played}. ${names[lead]} ${names[lead] === 'You' ? 'win' : 'wins'} with ${chips(stacks[lead])} chips.`
+      : `Match over after ${played}. Nobody finished alone in front.`;
+    if (!view.spectator && lead !== 0) {
+      const net = match.net?.[0] ?? 0;
+      text += net === 0 ? ' You finished even.' : ` You finished ${net > 0 ? 'up' : 'down'} ${chips(Math.abs(net))}.`;
+    }
+    return text;
+  }
+
+  function statusText(view) {
+    const hand = view.hand;
+    if (view.status === 'error') return `The game stopped: ${view.error?.message ?? 'unknown error'}`;
+    if (view.status === 'match_over' && view.match) return matchText(view);
+    if (!hand) return 'Setting the table';
+    if (hand.result) return resultText(view);
+    if (view.status === 'your_turn') return hand.to_call > 0 ? `Your move. ${chips(hand.to_call)} to call.` : 'Your move.';
+    if (!isSeat(hand.acting)) {
+      // Between turns the last action stays up, so a fast table can still be followed.
+      const last = logItems(view).at(-1);
+      return last?.entry ? `${last.text}.` : 'Dealing';
+    }
+    return view.players[hand.acting].type === 'agent' ? `Waiting for the agent in seat ${hand.acting}` : `${view.players[hand.acting].name} is thinking`;
+  }
+
+  // The line under the status: who took which pot when there are side pots, and the final chips after a match.
+  function substatusText(view) {
+    if (view.status === 'match_over' && view.match) {
+      const stacks = view.match.final_stacks ?? view.hand?.stacks ?? [];
+      const order = view.players.map(player => player.seat).sort((a, b) => stacks[b] - stacks[a]);
+      return `Final chips: ${order.map(seat => `${view.players[seat].name} ${chips(stacks[seat])}`).join(' · ')}`;
+    }
+    if (view.hand?.result) {
+      const lines = potLines(view);
+      if (lines.length > 1) return lines.map(line => line.text).join(' · ');
+    }
+    return '';
+  }
+
+  function actionButton(action, streetOpen) {
+    const names = { fold: 'Fold', check: 'Check', call: 'Call', raise_small: streetOpen ? 'Bet' : 'Raise to', raise_large: streetOpen ? 'Bet' : 'Raise to', all_in: 'All-in' };
+    const button = el('button', 'act');
+    if (action.label === 'check' || action.label === 'call') button.classList.add('safe');
+    if (action.label === 'fold') button.classList.add('fold');
+    if (action.label === 'all_in') button.classList.add('allin');
+    button.append(el('kbd', '', (KEY[action.label] || '').toUpperCase()), document.createTextNode(names[action.label] || action.label));
+    const amount = action.label === 'call' ? action.amount : (action.label === 'fold' || action.label === 'check' ? null : action.to);
+    if (amount !== null) button.append(el('b', '', chips(amount)));
+    button.addEventListener('click', () => send('/action', { label: action.label }));
+    return button;
+  }
+
+  // The same table again: same seats, same models, same turn limit.
+  function dealAgain() {
+    if (!state.players.length) {
+      openSetup();
+      return;
+    }
+    // A saved persona sits down again as itself, so the new game counts toward its rating and history.
+    const body = { players: state.players.map(player => (player.persona ? { persona: String(player.persona.id) } : { type: player.type, ...(player.model ? { model: player.model } : {}), ...(player.reasoning === false ? { reasoning: false } : {}), ...(player.style && player.style.id !== 'balanced' ? { style: player.style.id } : {}), ...(player.style_note ? { style_note: player.style_note } : {}) })) };
+    if (Number.isFinite(state.settings.turn_limit_ms)) body.turn_limit_ms = state.settings.turn_limit_ms;
+    send('/new', body);
+  }
+
+  function drawActions(view) {
+    const hand = view.hand;
+    const buttons = [];
+    if (view.status === 'your_turn' && hand) {
+      const streetOpen = hand.bets.every(bet => bet === 0);
+      for (const action of hand.legal_actions) buttons.push(actionButton(action, streetOpen));
+    } else if (GUEST && (view.status === 'hand_over' || view.status === 'match_over' || view.status === 'error')) {
+      if (view.status === 'hand_over' && hand && view.guest?.can_deal) {
+        // The host has no seat at this table, so the friends deal.
+        const next = el('button', 'act safe');
+        next.append(el('kbd', '', 'ENTER'), document.createTextNode(hand.number >= view.settings.hands ? 'Finish match' : 'Deal next hand'));
+        next.addEventListener('click', () => send('/next', {}));
+        buttons.push(next);
+      } else {
+        buttons.push(el('span', 'waiting', view.status === 'hand_over' ? 'The host deals the next hand.' : 'The game is over. The host can start another one.'));
+      }
+      if (view.status === 'match_over' && view.match) {
+        const recap = el('button', 'act', 'Game summary');
+        recap.addEventListener('click', () => openSummary(state));
+        buttons.push(recap);
+      }
+    } else if (view.status === 'hand_over' && hand) {
+      const next = el('button', 'act safe');
+      next.append(el('kbd', '', 'ENTER'), document.createTextNode(hand.number >= view.settings.hands ? 'Finish match' : 'Deal next hand'));
+      next.addEventListener('click', () => send('/next', {}));
+      buttons.push(next);
+      if (view.spectator) {
+        const label = el('label', 'auto caps');
+        const box = el('input');
+        box.type = 'checkbox';
+        box.checked = autoDeal;
+        box.addEventListener('change', () => { autoDeal = box.checked; render(state); });
+        label.append(box, document.createTextNode('Deal automatically'));
+        buttons.push(label);
+        if (autoDeal && !setup.open) autoTimer = setTimeout(() => send('/next', {}), AUTO_DEAL_MS);
+      }
+    } else if (view.status === 'match_over' || view.status === 'error') {
+      const again = el('button', 'act safe', 'Deal new game');
+      again.addEventListener('click', dealAgain);
+      buttons.push(again);
+      if (view.status === 'match_over' && view.match) {
+        const recap = el('button', 'act', 'Game summary');
+        recap.addEventListener('click', () => openSummary(state));
+        buttons.push(recap);
+      }
+    }
+    // Leave the row alone when nothing changed, so a state ping does not take the focus from a button.
+    const drawn = JSON.stringify([view.status, hand?.number ?? null, hand?.legal_actions ?? null, hand?.bets ?? null, view.spectator, autoDeal, view.settings.hands, Boolean(view.match)]);
+    if ($('actions').dataset.drawn === drawn) return;
+    $('actions').dataset.drawn = drawn;
+    fill($('actions'), buttons);
+  }
+
+  /* ---------- Table cells shared by the summary, the leaderboard and the history log ---------- */
+
+  function headCell(text, { left = false, rows = 1, cols = 1, title = '' } = {}) {
+    const node = el('th', left ? 'left' : '', text);
+    node.scope = cols > 1 ? 'colgroup' : 'col';
+    if (rows > 1) node.rowSpan = rows;
+    if (cols > 1) {
+      node.colSpan = cols;
+      node.classList.add('span');
+    }
+    if (title) node.title = title;
+    return node;
+  }
+
+  function cell(text, className = '') {
+    return el('td', className, text);
+  }
+
+  function factTile(label, value, detail = '') {
+    const tile = el('div', 'fact');
+    const strong = el('strong', '', value);
+    strong.title = value;
+    tile.append(el('span', 'caps', label), strong, el('small', '', detail));
+    return tile;
+  }
+
+  const STOP_SHORT = { hands_complete: 'All hands played', player_out_of_chips: 'Out of chips', closed: 'Closed early' };
+
+  /* ---------- Game summary ---------- */
+
+  function stopText(view) {
+    const match = view.match;
+    if (match.stop_reason === 'closed') return 'The game was closed before its last hand. A hand that was still being played is not counted.';
+    if (match.stop_reason === 'player_out_of_chips') {
+      const stacks = match.final_stacks ?? [];
+      const broke = view.players.filter((_, seat) => stacks[seat] === 0).map(player => player.name);
+      return broke.length ? `${listNames(broke)} ran out of chips.` : 'A player ran out of chips.';
+    }
+    if (match.stop_reason === 'hands_complete') return `Every one of the ${match.hands_played} hands was played.`;
+    return 'The game is over.';
+  }
+
+  // One row per player, best result first. A server that sends no summary still gets a table from what the page knows.
+  function summaryRows(view) {
+    const match = view.match;
+    const listed = Array.isArray(match.summary?.seats) ? match.summary.seats : [];
+    return view.players.map((player, seat) => {
+      const own = listed.find(entry => entry && entry.seat === seat) || {};
+      const think = player.think || {};
+      return {
+        seat,
+        name: player.name,
+        net: Number(own.net_chips ?? match.net?.[seat] ?? 0) || 0,
+        stack: own.final_stack ?? match.final_stacks?.[seat] ?? null,
+        handsWon: own.hands_won ?? null,
+        biggest: own.biggest_pot_won ?? null,
+        decisions: own.decisions ?? think.count ?? null,
+        mean: own.think_ms_mean ?? think.mean_ms ?? null,
+        max: own.think_ms_max ?? think.max_ms ?? null,
+        total: own.think_ms_total ?? think.total_ms ?? null,
+        timeouts: own.timeouts ?? null,
+        standIns: own.stand_ins ?? null
+      };
+    }).sort((a, b) => b.net - a.net || a.seat - b.seat);
+  }
+
+  function drawSummary(view) {
+    const match = view.match;
+    const key = JSON.stringify([view.seed, match, view.players.map(player => [player.name, player.think]), view.settings.hands]);
+    if ($('summary').dataset.drawn === key) return;
+    $('summary').dataset.drawn = key;
+    const rows = summaryRows(view);
+    const lead = isSeat(match.winner_seat) && view.players[match.winner_seat] ? match.winner_seat : null;
+
+    const verdict = [];
+    if (lead !== null) {
+      const name = view.players[lead].name;
+      const row = rows.find(candidate => candidate.seat === lead);
+      verdict.push(el('b', '', name), document.createTextNode(` ${name === 'You' ? 'win' : 'wins'} the game${finite(row?.stack) ? ` with ${chips(row.stack)} chips` : ''}${row ? `, ${signed(row.net)}` : ''}.`));
+    } else {
+      verdict.push(document.createTextNode(match.hands_played ? 'Nobody finished alone in front.' : 'No hand was finished, so nobody won.'));
+    }
+    fill($('summary-verdict'), verdict);
+
+    const played = Number(match.hands_played) || 0;
+    const biggest = match.summary?.biggest_pot ?? null;
+    const potWinners = biggest && Array.isArray(biggest.winners) ? biggest.winners.map(seat => view.players[seat]?.name).filter(Boolean) : [];
+    const facts = [
+      factTile('Why it ended', STOP_SHORT[match.stop_reason] || 'Game over', stopText(view)),
+      factTile('Hands played', String(played), `of ${view.settings.hands} planned`),
+      factTile('Duration', duration(match.duration_ms), finite(match.duration_ms) && played ? `${seconds(match.duration_ms / played)} a hand` : ''),
+      factTile('Biggest pot', biggest && finite(biggest.amount) ? chips(biggest.amount) : '–', biggest ? `${finite(biggest.hand_number) ? `Hand ${biggest.hand_number}` : ''}${potWinners.length ? `${finite(biggest.hand_number) ? ', ' : ''}won by ${listNames(potWinners)}` : ''}` : 'No pot was won.')
+    ];
+    if (finite(match.summary?.showdowns)) facts.push(factTile('Showdowns', String(match.summary.showdowns), played ? `in ${played} ${played === 1 ? 'hand' : 'hands'}` : ''));
+    fill($('summary-facts'), facts);
+
+    const head = el('thead');
+    const top = el('tr');
+    top.append(
+      headCell('Place', { left: true, rows: 2 }), headCell('Player', { left: true, rows: 2 }), headCell('Chips won', { rows: 2 }), headCell('Final chips', { rows: 2 }),
+      headCell('Hands won', { rows: 2 }), headCell('Biggest pot', { rows: 2, title: 'The largest pot this player won' }), headCell('Decisions', { rows: 2 }),
+      headCell('Reasoning time', { cols: 3 }),
+      headCell('Timeouts', { rows: 2, title: 'Turns that ran out of time' }), headCell('Stand-ins', { rows: 2, title: 'Moves the rule bot or the clock played for this player' })
+    );
+    const under = el('tr');
+    under.append(headCell('Average'), headCell('Longest'), headCell('Total'));
+    head.append(top, under);
+    const body = el('tbody');
+    rows.forEach((row, index) => {
+      const line = el('tr', row.seat === lead ? 'gold' : '');
+      const time = value => (Number(row.decisions) > 0 && finite(value) ? took(value) : '–');
+      const name = cell(row.name, 'left name');
+      name.title = row.name;
+      line.append(
+        cell(ordinal(index + 1), 'left'), name, cell(signed(row.net), tone(row.net).trim()), cell(dash(row.stack, chips)),
+        cell(dash(row.handsWon, String)), cell(Number(row.biggest) > 0 ? chips(row.biggest) : '–'), cell(dash(row.decisions, String)),
+        cell(time(row.mean)), cell(time(row.max)), cell(time(row.total)),
+        cell(dash(row.timeouts, String), Number(row.timeouts) > 0 ? 'down' : 'quiet'), cell(dash(row.standIns, String), Number(row.standIns) > 0 ? '' : 'quiet')
+      );
+      body.append(line);
+    });
+    fill($('summary-table'), [head, body]);
+
+    const ratings = Array.isArray(match.ratings) ? match.ratings.filter(entry => entry && finite(entry.before) && finite(entry.after)) : [];
+    $('summary-ratings-wrap').hidden = !ratings.length;
+    fill($('summary-ratings'), ratings.map(entry => {
+      const change = Number(entry.after) - Number(entry.before);
+      const tile = el('div', 'rate');
+      const who = el('span', 'who', String(entry.name ?? view.players[entry.seat]?.name ?? 'Persona'));
+      who.title = who.textContent;
+      tile.append(who, el('span', `delta${tone(Math.round(change))}`, signedSkill(change)), el('span', 'move', `${skill(entry.before)} → ${skill(entry.after)}`));
+      return tile;
+    }));
+    const notes = [];
+    if (!ratings.length && view.players.some(player => player.persona)) notes.push('This game did not change a skill rating.');
+    if (match.log_path) notes.push(`Game log: ${match.log_path}`);
+    $('summary-note').hidden = !notes.length;
+    $('summary-note').textContent = notes.join(' ');
+    $('summary-board').hidden = !view.personas_enabled;
+    $('summary-games').hidden = !view.history_enabled;
+  }
+
+  function openSummary(view) {
+    if (!view || view.status !== 'match_over' || !view.match) return;
+    drawSummary(view);
+    openDialog('summary');
+  }
+
+  // Header buttons that depend on the game, and the summary that opens once when a game ends.
+  let summaryShown = null;
+  let confirmKind = null;
+  function followMatch(view) {
+    const running = ['starting', 'dealing', 'thinking', 'your_turn', 'hand_over'].includes(view.status);
+    $('close-game').hidden = !running;
+    $('open-personas').hidden = !view.personas_enabled;
+    $('open-board').hidden = !view.personas_enabled;
+    $('open-games').hidden = !view.history_enabled;
+    $('open-invites').hidden = GUEST || !view.players.some(player => player.type === 'friend');
+    if (!running && confirmKind === 'close') closeDialog('confirm');
+    if (view.personas_enabled && !roster.asked) loadPersonas();
+    if (view.status !== 'match_over' || !view.match) {
+      // A new game began, here or from somewhere else: the old summary steps aside.
+      closeDialog('summary');
+      return;
+    }
+    if ($('summary').open) {
+      drawSummary(view);
+    } else if (summaryShown !== view.seed && !setup.open && !dialogOpen()) {
+      summaryShown = view.seed;
+      openSummary(view);
+      // Ratings moved with this game, so the saved list is read again.
+      loadPersonas();
+    }
+  }
+
+  async function closeGame() {
+    try {
+      const { ok, payload } = await request('POST', '/close', {});
+      if (ok) {
+        accept(payload);
+        return;
+      }
+      showError(payload.error || 'The table could not close the game.');
+      refresh().catch(error => console.error(error));
+    } catch (error) {
+      console.error(error);
+      showError(LOST_CONTACT);
+    }
+  }
+
+  /* ---------- Personas dialog ---------- */
+
+  const draft = { type: null, model: '', reasoning: true, style: 'balanced', note: '', drawn: null, busy: false };
+
+  function personaProblem() {
+    const name = $('pf-name').value.trim();
+    const type = state ? typeOf(state, draft.type) : null;
+    if (!type || !type.available) return 'Pick a player that can play.';
+    if (!name) return 'Give the persona a name.';
+    if ([...name].length > 24) return 'A name is 24 characters at most.';
+    if (roster.list.some(persona => persona.name === name)) return 'That name is already taken.';
+    if (type.models && draft.model && !MODEL_PATTERN.test(draft.model)) return 'A model name is 1 to 64 letters, digits, dots, colons, dashes or underscores.';
+    return null;
+  }
+
+  function checkPersonaDraft() {
+    const problem = personaProblem();
+    $('pf-create').disabled = Boolean(problem) || draft.busy;
+    $('pf-need').hidden = !problem;
+    $('pf-need').textContent = problem || '';
+    for (const input of $('pf-controls').querySelectorAll('.combo input')) input.classList.toggle('bad', Boolean(input.value.trim()) && !MODEL_PATTERN.test(input.value.trim()));
+  }
+
+  // The same controls a seat row has, for the player type chosen in the form.
+  function drawPersonaForm() {
+    const view = state;
+    if (!view) return;
+    const types = view.player_types;
+    if (!typeOf(view, draft.type)?.available) draft.type = (types.find(type => type.available && type.category === 'agent' && type.id !== 'agent') || types.find(type => type.available) || types[0])?.id ?? null;
+    const key = JSON.stringify([draft.type, draft.reasoning, draft.style, types, view.styles]);
+    if (key !== draft.drawn) {
+      draft.drawn = key;
+      fill($('pf-type'), types.map(type => {
+        const node = el('option', '', type.available ? type.name : `${type.name} (unavailable)`);
+        node.value = type.id;
+        node.disabled = !type.available;
+        return node;
+      }));
+      $('pf-type').value = draft.type;
+      const type = typeOf(view, draft.type);
+      const nodes = [];
+      const field = (label, control) => {
+        const box = el('div', 'field');
+        box.append(el('span', 'caps', label), control);
+        return box;
+      };
+      if (type?.models) nodes.push(field('Model', modelBox({ key: 'persona', label: 'Model for the new persona', value: draft.model, type, onChange: value => { draft.model = value; checkPersonaDraft(); } })));
+      if (type?.reasoning) nodes.push(field('Thinking before a move', reasoningSwitch({ label: 'Reasoning for the new persona', on: draft.reasoning, onToggle: on => { draft.reasoning = on; drawPersonaForm(); } })));
+      if (type?.styles) nodes.push(styleLine({ view, who: 'the new persona', type, style: draft.style, note: draft.note, onStyle: value => { draft.style = value; drawPersonaForm(); }, onNote: value => { draft.note = value; } }));
+      if (type?.id === 'human') nodes.push(el('p', 'hint', 'This persona is you at the table. It can only take seat 0, and its rating follows your own results.'));
+      if (type?.id === 'agent') nodes.push(el('p', 'hint', 'An open seat: your own agent plays this persona through GET /seats/N/view and POST /seats/N/action.'));
+      fill($('pf-controls'), nodes);
+    }
+    checkPersonaDraft();
+  }
+
+  async function createPersona() {
+    if (draft.busy || personaProblem() || !state) return;
+    const type = typeOf(state, draft.type);
+    const name = $('pf-name').value.trim();
+    const body = { name, type: type.id };
+    if (type.models && draft.model) body.model = draft.model;
+    if (type.reasoning && draft.reasoning === false) body.reasoning = false;
+    if (type.styles && draft.style && draft.style !== 'balanced') body.style = draft.style;
+    if (type.style_notes && draft.note.trim()) body.style_note = draft.note.trim();
+    draft.busy = true;
+    $('pf-saved').textContent = '';
+    $('pf-error').hidden = true;
+    checkPersonaDraft();
+    let failure = null;
+    try {
+      const { ok, payload } = await request('POST', '/personas', body);
+      if (!ok) failure = payload.error || 'The persona could not be saved.';
+    } catch (error) {
+      console.error(error);
+      failure = LOST_CONTACT;
+    }
+    draft.busy = false;
+    if (failure) {
+      $('pf-error').textContent = failure;
+      $('pf-error').hidden = false;
+      checkPersonaDraft();
+      return;
+    }
+    $('pf-name').value = '';
+    $('pf-saved').textContent = `Saved ${name}.`;
+    await loadPersonas();
+    checkPersonaDraft();
+    $('pf-name').focus();
+  }
+
+  async function removePersona(persona) {
+    let failure = null;
+    try {
+      // The body is empty JSON so the request is accepted whether or not the server reads one.
+      const { ok, payload } = await request('DELETE', `/personas/${encodeURIComponent(persona.id)}`, {});
+      if (!ok) failure = payload.error || 'The persona could not be deleted.';
+    } catch (error) {
+      console.error(error);
+      failure = LOST_CONTACT;
+    }
+    $('plist-error').hidden = !failure;
+    $('plist-error').textContent = failure || '';
+    $('pf-saved').textContent = failure ? '' : `Deleted ${persona.name}.`;
+    await loadPersonas();
+    checkPersonaDraft();
+  }
+
+  function drawPersonaList() {
+    const view = state;
+    if (!view) return;
+    const box = $('plist');
+    const key = JSON.stringify([roster.loaded, roster.error, roster.list, view.player_types, view.styles]);
+    if (box.dataset.drawn === key) return;
+    box.dataset.drawn = key;
+    if (!roster.loaded) {
+      fill(box, [el('p', 'hint', roster.error || 'Reading the saved personas.')]);
+      return;
+    }
+    if (!roster.list.length) {
+      fill(box, [el('p', 'hint', 'No personas yet. Create the first one below.')]);
+      return;
+    }
+    fill(box, roster.list.map(persona => {
+      const item = el('div', 'pitem');
+      const who = el('div', 'pwho');
+      const name = el('div', 'pname', persona.name);
+      name.title = persona.name;
+      const games = Number(persona.matches) || 0;
+      const meta = el('div', 'pmeta', `${personaSummary(view, persona)} · ${games ? `${games} ${games === 1 ? 'match' : 'matches'}` : 'not played yet'}`);
+      meta.title = meta.textContent;
+      who.append(name, meta);
+      const rating = el('span', 'skill');
+      rating.append(el('span', 'caps', 'Skill'), el('b', '', skill(persona.rating)));
+      const log = el('button', 'ghost', 'History');
+      log.type = 'button';
+      log.setAttribute('aria-label', `History of ${persona.name}`);
+      log.addEventListener('click', () => openHistory(persona.id));
+      const remove = el('button', 'ghost warn', 'Delete');
+      remove.type = 'button';
+      remove.setAttribute('aria-label', `Delete ${persona.name}`);
+      remove.addEventListener('click', () => askConfirm({
+        kind: 'delete',
+        title: `Delete ${persona.name}?`,
+        text: 'Its skill rating and its history log are removed for good. Games already played keep their own logs.',
+        yes: 'Delete persona',
+        no: 'Keep it',
+        onYes: () => removePersona(persona)
+      }));
+      item.append(who, rating, log, remove);
+      return item;
+    }));
+  }
+
+  function openPersonas() {
+    if (!state) return;
+    $('pf-saved').textContent = '';
+    $('pf-error').hidden = true;
+    $('plist-error').hidden = true;
+    drawPersonaForm();
+    drawPersonaList();
+    openDialog('personas');
+    loadPersonas();
+  }
+
+  /* ---------- Leaderboard and history log ---------- */
+
+  const playerLabel = (view, persona) => `${typeOf(view, persona.type)?.name ?? String(persona.type ?? '–')}${persona.model ? ` · ${persona.model}` : ''}`;
+
+  function drawBoard() {
+    const view = state;
+    if (!view) return;
+    const table = $('board-table');
+    const key = JSON.stringify([roster.loaded, roster.error, roster.list, view.player_types]);
+    if (table.dataset.drawn === key) return;
+    table.dataset.drawn = key;
+    if (!roster.loaded) $('board-hint').textContent = roster.error || 'Reading the ranking.';
+    else if (!roster.list.length) $('board-hint').textContent = 'No personas yet. Create one, seat it in a game, and it is ranked here.';
+    else $('board-hint').textContent = 'Ranked by skill rating, which moves after every finished game. Pick a persona to read its history log.';
+    if (!roster.list.length) {
+      fill(table, []);
+      return;
+    }
+    const head = el('thead');
+    const top = el('tr');
+    top.append(
+      headCell('Rank', { left: true }), headCell('Persona', { left: true }), headCell('Player', { left: true }), headCell('Skill'), headCell('Matches'), headCell('Wins', { title: 'Matches finished alone in first place' }),
+      headCell('BB / 100', { title: 'Big blinds won per 100 hands' }), headCell('Avg reasoning', { title: 'Average reasoning time per decision' }), headCell('Last played')
+    );
+    head.append(top);
+    const body = el('tbody');
+    for (const persona of roster.list) {
+      const row = el('tr', `pick${persona.rank >= 1 && persona.rank <= 3 ? ` rank${persona.rank}` : ''}`);
+      const place = cell('', 'left');
+      place.append(el('span', 'medal', String(persona.rank)));
+      const name = cell('', 'left name');
+      const link = el('button', 'linkish', persona.name);
+      link.type = 'button';
+      link.title = persona.name;
+      link.setAttribute('aria-label', `${persona.name}, rank ${persona.rank}. Open the history log.`);
+      name.append(link);
+      const matches = Number(persona.matches) || 0;
+      const wins = cell(dash(persona.match_wins, String));
+      if (matches > 0 && finite(persona.match_wins)) wins.append(el('small', '', `${Math.round((100 * Number(persona.match_wins)) / matches)}%`));
+      row.append(
+        place, name, cell(playerLabel(view, persona), 'left quiet'), cell(skill(persona.rating), 'skill-cell'), cell(String(matches), matches ? '' : 'quiet'), wins,
+        cell(perHundred(persona.bb_per_100), finite(persona.bb_per_100) ? tone(persona.bb_per_100).trim() : 'quiet'),
+        cell(finite(persona.avg_think_ms) ? took(persona.avg_think_ms) : '–', finite(persona.avg_think_ms) ? '' : 'quiet'),
+        cell(when(persona.last_played_at), persona.last_played_at ? '' : 'quiet')
+      );
+      // The name is a button, so the keyboard opens the log too; its click also lands here.
+      row.addEventListener('click', () => openHistory(persona.id));
+      body.append(row);
+    }
+    fill(table, [head, body]);
+  }
+
+  function openBoard() {
+    if (!state) return;
+    drawBoard();
+    openDialog('leaderboard');
+    loadPersonas();
+  }
+
+  const past = { id: null };
+  function drawHistory(persona, history, note) {
+    const view = state;
+    $('history-title').textContent = persona.name;
+    $('history-about').textContent = `${personaSummary(view, persona)}${persona.created_at ? ` · saved ${when(persona.created_at)}` : ''}`;
+    const matches = Number(persona.matches) || 0;
+    fill($('history-facts'), [
+      factTile('Rank', finite(persona.rank) ? ordinal(Number(persona.rank)) : '–', roster.list.length ? `of ${roster.list.length} ${roster.list.length === 1 ? 'persona' : 'personas'}` : ''),
+      factTile('Skill', skill(persona.rating)),
+      factTile('Matches', String(matches), matches && finite(persona.match_wins) ? `${persona.match_wins} won` : ''),
+      factTile('Hands', dash(persona.hands, chips)),
+      factTile('Chips won', finite(persona.net_chips) ? signed(Number(persona.net_chips)) : '–', finite(persona.bb_per_100) ? `${perHundred(persona.bb_per_100)} big blinds per 100 hands` : ''),
+      factTile('Avg reasoning', finite(persona.avg_think_ms) ? took(persona.avg_think_ms) : '–', persona.last_played_at ? `Last played ${when(persona.last_played_at)}` : '')
+    ]);
+    const lines = Array.isArray(history) ? history : [];
+    if (lines.length) {
+      const head = el('thead');
+      const top = el('tr');
+      top.append(headCell('Date', { left: true }), headCell('Hands'), headCell('Place', { left: true }), headCell('Opponents', { left: true }), headCell('Chips'), headCell('BB / 100'), headCell('Skill'), headCell('Ended', { left: true }));
+      head.append(top);
+      const body = el('tbody');
+      for (const entry of lines) {
+        const row = el('tr', Number(entry.place) === 1 ? 'gold' : '');
+        const opponents = Array.isArray(entry.opponents) ? entry.opponents.map(String) : [];
+        const rated = finite(entry.rating_before) && finite(entry.rating_after);
+        const moved = cell(rated ? `${skill(entry.rating_before)} → ${skill(entry.rating_after)}` : '–');
+        if (rated) {
+          const change = Number(entry.rating_after) - Number(entry.rating_before);
+          moved.append(el('small', tone(Math.round(change)).trim(), signedSkill(change)));
+        }
+        row.append(
+          cell(when(entry.at), 'left'), cell(dash(entry.hands, String)),
+          cell(finite(entry.place) ? `${ordinal(Number(entry.place))}${finite(entry.of) ? ` of ${entry.of}` : ''}` : '–', 'left'),
+          cell(opponents.length ? listNames(opponents) : '–', 'left wrap'),
+          cell(finite(entry.net_chips) ? signed(Number(entry.net_chips)) : '–', tone(entry.net_chips).trim()),
+          cell(perHundred(entry.bb_per_100), tone(entry.bb_per_100).trim()), moved,
+          cell(STOP_SHORT[entry.stop_reason] || '–', 'left quiet')
+        );
+        body.append(row);
+      }
+      fill($('history-table'), [head, body]);
+    } else {
+      fill($('history-table'), []);
+    }
+    const hint = note || (Array.isArray(history) && !lines.length ? 'No finished game yet. The log gets one line for every game this persona plays.' : '');
+    $('history-hint').hidden = !hint;
+    $('history-hint').textContent = hint;
+  }
+
+  async function openHistory(id) {
+    const persona = personaOf(id);
+    if (!persona || !state) return;
+    past.id = id;
+    drawHistory(persona, null, 'Reading the history log.');
+    openDialog('history');
+    try {
+      const { ok, payload } = await request('GET', `/personas/${encodeURIComponent(id)}`);
+      if (past.id !== id) return;
+      if (!ok || !payload.persona) throw new Error(payload.error || 'The server did not return this persona.');
+      drawHistory({ ...persona, ...payload.persona, id: persona.id, name: String(payload.persona.name ?? persona.name), rank: finite(payload.persona.rank) ? Number(payload.persona.rank) : persona.rank }, Array.isArray(payload.persona.history) ? payload.persona.history : [], null);
+    } catch (error) {
+      if (past.id === id) drawHistory(persona, null, error instanceof TypeError ? LOST_CONTACT : String(error.message || error));
+    }
+  }
+
+  /* ---------- Game history ---------- */
+
+  const STOP_LABEL = { ...STOP_SHORT, player_quit: 'Ended early' };
+  const books = { token: 0, list: null };
+
+  // A card as text, "K♠", red for hearts and diamonds.
+  function cardText(code) {
+    const text = String(code || '');
+    return el('span', `ctext${text[1] === 'h' || text[1] === 'd' ? ' red' : ''}`, `${text[0] === 'T' ? '10' : text[0] || '?'}${SUIT[text[1]] || ''}`);
+  }
+
+  function cardsLine(codes) {
+    const line = el('span', 'hboard');
+    codes.forEach((code, index) => {
+      if (index) line.append(' ');
+      line.append(cardText(code));
+    });
+    return line;
+  }
+
+  function gameHint(text) {
+    $('games-hint').textContent = text;
+    $('games-hint').hidden = !text;
+  }
+
+  function gameError(text) {
+    $('games-error').textContent = text || '';
+    $('games-error').hidden = !text;
+  }
+
+  // Switches the dialog between the list of games and one game.
+  function showGamesPart(detail) {
+    $('games-list').hidden = detail;
+    $('games-back').hidden = !detail;
+    for (const id of ['game-facts', 'game-standings', 'game-hands-label', 'game-hands']) $(id).hidden = !detail;
+  }
+
+  function winnerOf(game) {
+    return isSeat(game.winner_seat) ? game.players[game.winner_seat] ?? null : null;
+  }
+
+  function drawGameList(current, games) {
+    const rows = [...(current ? [current] : []), ...games];
+    showGamesPart(false);
+    $('games-title').replaceChildren('Game ', el('em', '', 'history'));
+    gameHint(rows.length ? 'Every game played at this table or in the terminal, newest first. Pick one to see it hand by hand.' : 'No game yet. Every game played here is listed once it has started.');
+    if (!rows.length) {
+      fill($('games-table'), []);
+      return;
+    }
+    const head = el('thead');
+    const top = el('tr');
+    top.append(headCell('Started', { left: true }), headCell('Players', { left: true }), headCell('Hands'), headCell('Winner', { left: true }), headCell('Chips won'), headCell('Duration'), headCell('Ended', { left: true }));
+    head.append(top);
+    const body = el('tbody');
+    for (const game of rows) {
+      const row = el('tr', 'pick');
+      const started = cell('', 'left');
+      const link = el('button', 'linkish', when(game.started_at));
+      link.type = 'button';
+      link.setAttribute('aria-label', `Game started ${when(game.started_at)}. Open it hand by hand.`);
+      started.append(link);
+      if (game.in_progress) started.append(el('span', 'badge', 'In progress'));
+      const players = cell(listNames(game.players.map(player => player.name)), 'left wrap');
+      if (game.source === 'terminal') players.append(el('small', '', 'terminal'));
+      const leader = winnerOf(game);
+      const winner = cell(leader ? leader.name : '–', leader ? 'left winner' : 'left quiet');
+      if (leader && game.in_progress) winner.append(el('small', '', 'leading'));
+      row.append(
+        started, players, cell(String(game.hands_played ?? 0)), winner,
+        cell(leader && finite(leader.net_chips) ? signed(Number(leader.net_chips)) : '–', leader ? tone(leader.net_chips).trim() : 'quiet'),
+        cell(duration(game.duration_ms)),
+        cell(game.in_progress ? 'In progress' : STOP_LABEL[game.stop_reason] || '–', 'left quiet')
+      );
+      row.addEventListener('click', () => openGame(game.id));
+      body.append(row);
+    }
+    fill($('games-table'), [head, body]);
+  }
+
+  async function openGames() {
+    if (!state?.history_enabled) return;
+    const token = ++books.token;
+    gameError('');
+    showGamesPart(false);
+    if (books.list) drawGameList(books.list.current, books.list.games);
+    else gameHint('Reading the game history.');
+    if (!$('games').open) openDialog('games');
+    try {
+      const { ok, payload } = await request('GET', '/games');
+      if (token !== books.token) return;
+      if (!ok || !Array.isArray(payload.games)) throw new Error(payload.error || 'The server did not return the game history.');
+      books.list = { current: payload.current ?? null, games: payload.games };
+      drawGameList(books.list.current, books.list.games);
+    } catch (error) {
+      if (token === books.token) gameError(error instanceof TypeError ? LOST_CONTACT : String(error.message || error));
+    }
+  }
+
+  // "Jev wins with a straight", "Bot 1 and Bot 2 split the pot", "Claude wins; the others folded".
+  function handOutcome(hand, names) {
+    const result = hand.result;
+    const winners = result.winners.map(seat => names[seat] ?? `Seat ${seat}`);
+    if (!winners.length) return 'No winner';
+    if (result.reason !== 'showdown') return `${winners[0]} ${winners[0] === 'You' ? 'win' : 'wins'}; the others folded`;
+    if (winners.length > 1) return `${listNames(winners)} split the pot`;
+    const made = result.hand_names[result.winners[0]];
+    return `${winners[0]} ${winners[0] === 'You' ? 'win' : 'wins'}${made ? ` with ${made}` : ''}`;
+  }
+
+  function handSection(game, hand) {
+    const names = game.players.map(player => player.name);
+    const section = el('details', 'hand');
+    const summary = el('summary');
+    summary.append(el('span', 'hnum', `Hand ${hand.number}`));
+    summary.append(hand.board.length ? cardsLine(hand.board) : el('span', 'hboard quiet', 'no flop'));
+    summary.append(el('span', 'hwin', handOutcome(hand, names)));
+    if (finite(hand.result.pot)) summary.append(el('span', 'hpot', `Pot ${chips(hand.result.pot)}`));
+    const body = el('div', 'hand-body');
+    // Each seat's cards as the table showed them.
+    const seats = el('div', 'hand-cards');
+    game.players.forEach((player, seat) => {
+      if (!hand.dealt_in[seat]) return;
+      const line = el('div');
+      const who = el('span', 'who', `${player.name}${hand.button === seat ? ' (button)' : ''}`);
+      who.title = who.textContent;
+      line.append(who);
+      const cards = hand.cards[seat];
+      if (cards) line.append(cardsLine(cards));
+      else line.append(el('span', 'quiet', hand.actions.some(action => action.seat === seat && action.label === 'fold') ? 'folded, not shown' : 'not shown'));
+      if (hand.result.hand_names[seat]) line.append(el('span', 'quiet', hand.result.hand_names[seat]));
+      const net = hand.result.net[seat];
+      if (finite(net) && net !== 0) line.append(el('span', `quiet${tone(net)}`, signed(Number(net))));
+      seats.append(line);
+    });
+    // The same lines "This hand" writes, from a view built for this one hand.
+    const view = { players: game.players, settings: { big_blind: game.blinds.big }, hand: { log: hand.actions, result: hand.result } };
+    const log = el('ol');
+    for (const item of logItems(view)) {
+      if (!item.entry) {
+        log.append(el('li', 'street', item.street === 'preflop' ? 'Before the flop' : item.street));
+        continue;
+      }
+      const line = el('li', `s${item.entry.seat}`, item.text);
+      if (finite(item.entry.think_ms)) line.append(el('span', 'took', ` · ${took(item.entry.think_ms)}`));
+      if (item.entry.timed_out) line.append(el('span', 'late', ' · timed out'));
+      if (item.entry.stand_in) line.append(el('span', 'took', ' · rule bot stood in'));
+      log.append(line);
+    }
+    log.append(el('li', 'street', 'Result'));
+    const lines = potLines(view);
+    if (lines.length) for (const line of lines) log.append(el('li', line.won ? 'won' : '', line.text));
+    else log.append(el('li', 'won', handOutcome(hand, names)));
+    body.append(seats, log);
+    section.append(summary, body);
+    return section;
+  }
+
+  function drawGame(game) {
+    showGamesPart(true);
+    $('games-title').replaceChildren(game.in_progress ? 'This ' : 'Game of ', el('em', '', game.in_progress ? 'game so far' : when(game.started_at)));
+    const where = game.source === 'terminal' ? 'Played in the terminal' : (game.spectator ? 'Watched at the table' : 'Played at the table');
+    gameHint(`${where} by ${listNames(game.players.map(player => player.name))}.${game.in_progress ? ' Finished hands only; the hand being played is added when it ends.' : ''}`);
+    const limit = finite(game.turn_limit_ms) ? (Number(game.turn_limit_ms) > 0 ? `${Math.round(Number(game.turn_limit_ms) / 1000)} s a turn` : 'No limit') : '–';
+    fill($('game-facts'), [
+      factTile(game.in_progress ? 'Status' : 'Why it ended', game.in_progress ? 'In progress' : STOP_LABEL[game.stop_reason] || 'Game over', game.ended_at ? `Ended ${when(game.ended_at)}` : ''),
+      factTile('Hands played', String(game.hands_played ?? 0)),
+      factTile('Duration', duration(game.duration_ms)),
+      factTile('Blinds', finite(game.blinds.small) && finite(game.blinds.big) ? `${chips(game.blinds.small)} / ${chips(game.blinds.big)}` : '–', finite(game.starting_stack) ? `${chips(game.starting_stack)} chips each to start` : ''),
+      factTile('Turn limit', limit)
+    ]);
+    // Standings: most chips first.
+    const order = game.players.map((player, seat) => ({ player, seat })).sort((a, b) => (b.player.final_stack ?? 0) - (a.player.final_stack ?? 0));
+    const head = el('thead');
+    const top = el('tr');
+    top.append(headCell('Place', { left: true }), headCell('Player', { left: true }), headCell('Chips won'), headCell(game.in_progress ? 'Chips now' : 'Final chips'), headCell('Hands won'));
+    head.append(top);
+    const body = el('tbody');
+    order.forEach(({ player, seat }) => {
+      const place = order.findIndex(other => other.player.final_stack === player.final_stack) + 1;
+      const row = el('tr', seat === game.winner_seat && !game.in_progress ? 'gold' : '');
+      const name = cell(player.name, 'left name');
+      name.title = player.name;
+      row.append(
+        cell(game.hands_played ? ordinal(place) : '–', 'left'), name,
+        cell(finite(player.net_chips) ? signed(Number(player.net_chips)) : '–', tone(player.net_chips).trim()),
+        cell(dash(player.final_stack, chips)),
+        cell(String(game.hands.filter(hand => hand.result.winners.includes(seat)).length))
+      );
+      body.append(row);
+    });
+    fill($('game-table'), [head, body]);
+    const hands = game.hands.map(hand => handSection(game, hand));
+    fill($('game-hands'), hands.length ? hands : [el('p', 'hint', 'No hand was finished in this game.')]);
+    $('games').scrollTop = 0;
+  }
+
+  async function openGame(id) {
+    const token = ++books.token;
+    gameError('');
+    gameHint('Reading the game.');
+    try {
+      const { ok, payload } = await request('GET', `/games/${encodeURIComponent(id)}`);
+      if (token !== books.token) return;
+      if (!ok || !payload.game || !Array.isArray(payload.game.hands)) throw new Error(payload.error || 'The server did not return this game.');
+      drawGame(payload.game);
+    } catch (error) {
+      if (token !== books.token) return;
+      gameHint('');
+      gameError(error instanceof TypeError ? LOST_CONTACT : String(error.message || error));
+    }
+  }
+
+  /* ---------- Invitations for a friends' table ---------- */
+
+  async function openInvites() {
+    if (GUEST) return;
+    openDialog('invites');
+    $('invites-error').hidden = true;
+    try {
+      const { ok, payload } = await request('GET', '/invites');
+      if (!ok) throw new Error(payload.error || 'The server did not return the links.');
+      const links = Array.isArray(payload.links) ? payload.links : [];
+      $('invites-hint').textContent = payload.tunnel
+        ? 'Send each friend their own link. It opens the table on their phone or laptop from any network, through a Cloudflare tunnel, showing only their cards. A new tunnel address can take a minute to work. Anyone with a link can play that seat until the table is restarted, so share them privately.'
+        : 'Send each friend their own link. It opens the table on their phone or laptop on this Wi-Fi, showing only their cards. Anyone with a link can play that seat until the table is restarted, so share them privately.';
+      if (!links.length) {
+        fill($('invite-list'), [el('p', 'hint', 'No friend is seated in this game. Choose the Friends\' table on the start screen.')]);
+        return;
+      }
+      fill($('invite-list'), links.map(link => {
+        const row = el('div', 'invite');
+        const copy = el('button', 'ghost', 'Copy link');
+        copy.type = 'button';
+        copy.disabled = !link.url;
+        copy.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(link.url);
+            copy.textContent = 'Copied';
+          } catch {
+            // No clipboard here: select the link so it can be copied by hand.
+            const range = document.createRange();
+            range.selectNodeContents(row.querySelector('code'));
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+            copy.textContent = 'Selected';
+          }
+          setTimeout(() => { copy.textContent = 'Copy link'; }, 1600);
+        });
+        row.append(el('span', 'who', `Seat ${link.seat} · ${link.name}`), copy, el('code', '', link.url || 'Start the table with --lan or --tunnel to get a link.'));
+        return row;
+      }));
+    } catch (error) {
+      $('invites-error').textContent = error instanceof TypeError ? LOST_CONTACT : String(error.message || error);
+      $('invites-error').hidden = false;
+    }
+  }
+
+  /* ---------- Add-ons ---------- */
+
+  // An add-on (not part of OpenPoker) may add its own parts to this page: the server places its markup
+  // after this script, and it attaches here. It gets the page's helpers, is told about every state, and
+  // may add a note to its own players' moves.
+  const extensions = [];
+  window.OpenPokerPage = Object.freeze({
+    use(extension) {
+      extensions.push(extension);
+      if (state) extension.render?.(state);
+    },
+    helpers: Object.freeze({ $, el, fill, request, openDialog, closeDialog, LOST_CONTACT, SVG_NS, cell, chips, dash, duration, factTile, finite, headCell, perHundred, tone, when })
+  });
+
+  // Idempotent: called again on every state ping. Only things that are new animate.
+  // The page's name: OpenPoker, or the name a private edition gives itself. Its last word (or, for one
+  // word, its second capitalised part) is set in the gold italic.
+  let brandDrawn = null;
+  function drawBrand(view) {
+    const name = typeof view.brand === 'string' && view.brand.trim() ? view.brand.trim().slice(0, 40) : 'OpenPoker';
+    if (name === brandDrawn) return;
+    brandDrawn = name;
+    const words = name.split(' ');
+    const split = words.length > 1 ? [words[0] + ' ', words.slice(1).join(' ')] : (name.match(/^([A-Z][a-z]+)([A-Z].*)$/)?.slice(1) ?? [name, '']);
+    fill($('brand'), [document.createTextNode(split[0]), ...(split[1] ? [el('em', '', split[1])] : [])]);
+    $('brand-caps').textContent = name;
+    if (!GUEST) document.title = name;
+  }
+
+  function render(view) {
+    drawBrand(view);
+    for (const extension of extensions) {
+      try {
+        extension.render?.(view);
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    state = view;
+    clearTimeout(autoTimer);
+    const hand = view.hand;
+    drawSetup(view);
+    followMatch(view);
+
+    const mode = modeFor(view);
+    const count = view.players.length;
+    const limit = view.settings.turn_limit_ms;
+    const about = [];
+    if (GUEST && view.guest) about.push(`Playing as ${view.guest.name}`);
+    else if (mode) about.push(mode.sides[1] ? `${mode.sides[0]} vs ${mode.sides[1]}` : mode.sides[0]);
+    if (count) about.push(`${count} seats`);
+    if (count && Number.isFinite(limit)) about.push(limit > 0 ? `${Math.round(limit / 1000)} s a turn` : 'no turn limit');
+    $('modename').textContent = about.join(' · ');
+    $('handcount').textContent = hand
+      ? `Hand ${hand.number} of ${view.settings.hands} · blinds ${chips(view.settings.small_blind)}/${chips(view.settings.big_blind)}`
+      : "Hold'em";
+
+    $('status').textContent = statusText(view);
+    $('status').classList.toggle('thinking', ['dealing', 'starting'].includes(view.status) || (view.status === 'thinking' && isLive(view)));
+    const under = substatusText(view);
+    $('substatus').hidden = !under;
+    $('substatus').classList.remove('hot');
+    $('substatus').textContent = under;
+    if (Date.now() - errorShownAt > ERROR_HOLD_MS) $('error').hidden = true;
+    $('notice').hidden = !view.warnings.length;
+    $('notice').textContent = view.warnings.map(text => `${text}${/[.!?]$/.test(text) ? '' : '.'} The rule bot is playing that seat's moves.`).join(' ');
+
+    const gold = goldSeats(view);
+    buildSeats(view);
+    $('stage').classList.toggle('settled', gold.length > 0);
+    if (hand) {
+      const prefix = `${view.seed}:${hand.number}`;
+      if (dealtHand !== prefix) {
+        dealt.clear();
+        dealtHand = prefix;
+      }
+    }
+    view.players.forEach((_, seat) => drawSeat(view, seat, gold));
+    drawScore(view, gold);
+    drawTimes(view);
+    drawActions(view);
+    hearState(view);
+
+    if (!hand) {
+      $('pot').textContent = '0';
+      fill($('board'), [0, 1, 2, 3, 4].map(() => el('div', 'slot')));
+      fill($('log'), []);
+      fill($('think'), []);
+      return;
+    }
+    $('pot').textContent = chips(hand.pot);
+    const prefix = `${view.seed}:${hand.number}`;
+    const firstNew = hand.board.findIndex((code, index) => !dealt.has(`${prefix}:board:${index}`));
+    placeCards($('board'), [0, 1, 2, 3, 4].map(index => {
+      const code = hand.board[index];
+      const key = code ? `${prefix}:board:${index}` : `slot:${index}`;
+      return { key, make: () => (code ? cardNode(code, key, Math.max(0, index - Math.max(0, firstNew))) : el('div', 'slot')) };
+    }));
+    const items = logItems(view);
+    drawLog(view, items);
+    drawChoices(view);
+    announceActions(view, items);
+    tick();
+  }
+
+  // Takes a snapshot from the server. An older snapshot that arrives late is dropped.
+  function accept(view) {
+    if (Number.isFinite(view.version)) {
+      if (view.version < lastVersion) return;
+      lastVersion = view.version;
+    }
+    try {
+      render(view);
+    } catch (error) {
+      console.error(error);
+      showError('The page could not draw this state of the game. The browser console has the details.');
+    }
+  }
+
+  async function refresh() {
+    if (GUEST) {
+      const response = await fetch('/guest/state', { cache: 'no-store', headers: { 'X-Seat-Key': SEAT_KEY || '' } });
+      const payload = await response.json();
+      if (!response.ok) {
+        // Not a seat in the current game (yet), or a wrong link: say so and keep listening.
+        $('status').textContent = response.status !== 401 ? 'Waiting for the host to start a game with your seat.'
+          : SEAT_KEY ? 'This seat link is not valid. Ask the host for a new one.'
+          : 'Open the seat link the host sent you. This address alone does not open a seat.';
+        return;
+      }
+      document.title = `${payload.brand || 'OpenPoker'} · ${payload.guest?.name ?? 'Friend'}`;
+      accept(payload);
+      return;
+    }
+    const response = await fetch('/state', { cache: 'no-store' });
+    accept(await response.json());
+  }
+
+  async function send(path, body) {
+    if (busy) return;
+    busy = true;
+    let response;
+    let payload;
+    try {
+      // A friend may only move, and deal the next hand when the host has no seat; the host runs the game.
+      const guestPath = { '/action': '/guest/action', '/next': '/guest/next' }[path];
+      if (GUEST && !guestPath) return;
+      response = GUEST
+        ? await fetch(guestPath, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Seat-Key': SEAT_KEY || '' }, body: JSON.stringify(body) })
+        : await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      payload = await response.json();
+    } catch (error) {
+      console.error(error);
+      showError(LOST_CONTACT);
+      return;
+    } finally {
+      busy = false;
+    }
+    if (response.ok) {
+      if (path === '/new') {
+        setup.open = false;
+        setup.auto = false;
+        // A game with friends: hand out their links straight away.
+        if (Array.isArray(payload.players) && payload.players.some(player => player.type === 'friend')) setTimeout(openInvites, 300);
+      }
+      $('setup-error').hidden = true;
+      accept(payload);
+    } else if (path === '/next' && payload.code === 'NOT_WAITING') {
+      // Someone else (a friend, another page) dealt it first.
+      refresh().catch(error => console.error(error));
+    } else if (setup.open) {
+      $('setup-error').textContent = payload.error || 'The table refused that request.';
+      $('setup-error').hidden = false;
+    } else {
+      showError(payload.error || 'The table refused that request.');
+      // The table moved on without us (a turn that timed out, for one): catch up.
+      refresh().catch(error => console.error(error));
+    }
+  }
+
+  function openSetup() {
+    const mode = state.players.length ? modeFor(state) : null;
+    setup.open = true;
+    setup.auto = false;
+    setup.mode = mode?.id ?? null;
+    if (state.players.length) setup.count = state.players.length;
+    setup.picks = mode ? state.players.map(player => player.type) : [];
+    setup.personas = mode ? state.players.map(player => (player.persona ? String(player.persona.id) : null)) : [];
+    setup.models = mode ? state.players.map(player => (player.persona ? '' : player.model || '')) : [];
+    setup.reasoning = mode ? state.players.map(player => player.reasoning !== false) : [];
+    setup.styles = mode ? state.players.map(player => player.style?.id || 'balanced') : [];
+    setup.notes = mode ? state.players.map(player => player.style_note || '') : [];
+    setup.names = mode ? state.players.map(player => (player.type === 'friend' ? player.name : '')) : [];
+    if (Number.isFinite(state.settings.turn_limit_ms)) setup.limit = state.settings.turn_limit_ms;
+    setup.drawn = null;
+    $('setup-error').hidden = true;
+    render(state);
+  }
+
+  $('deal').addEventListener('click', () => {
+    if (!state || $('deal').disabled) return;
+    const players = setup.picks.map((type, seat) => {
+      // A saved persona is sent by its id; the server seats it with its own model, reasoning and style.
+      if (setup.personas[seat]) return { persona: String(setup.personas[seat]) };
+      if (type === 'friend') return (setup.names[seat] || '').trim() ? { type, name: setup.names[seat].trim() } : type;
+      const kind = typeOf(state, type);
+      const model = setup.models[seat] && kind?.models ? setup.models[seat] : null;
+      const quick = kind?.reasoning && setup.reasoning[seat] === false;
+      const style = kind?.styles && setup.styles[seat] && setup.styles[seat] !== 'balanced' ? setup.styles[seat] : null;
+      const note = kind?.style_notes && (setup.notes[seat] || '').trim() ? setup.notes[seat].trim() : null;
+      if (!model && !quick && !style && !note) return type;
+      return { type, ...(model ? { model } : {}), ...(quick ? { reasoning: false } : {}), ...(style ? { style } : {}), ...(note ? { style_note: note } : {}) };
+    });
+    send('/new', { players, turn_limit_ms: setup.limit });
+  });
+  $('change').addEventListener('click', () => { if (state) openSetup(); });
+  $('setup-close').addEventListener('click', () => { setup.open = false; render(state); });
+  document.addEventListener('keydown', event => {
+    if (!state || setup.open || dialogOpen() || event.metaKey || event.ctrlKey || event.altKey || event.repeat) return;
+    const target = event.target;
+    if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
+    if (event.key === 'Enter' && state.status === 'hand_over' && (!GUEST || state.guest?.can_deal)) {
+      // Enter on some other focused button keeps its own meaning.
+      if (target.tagName === 'BUTTON' && !$('actions').contains(target)) return;
+      event.preventDefault();
+      send('/next', {});
+      return;
+    }
+    if (state.status !== 'your_turn') return;
+    const label = Object.keys(KEY).find(candidate => KEY[candidate] === event.key.toLowerCase());
+    if (label && state.hand.legal_actions.some(action => action.label === label)) send('/action', { label });
+  });
+
+  /* ---------- Header, dialogs and sound switches ---------- */
+
+  // A browser lets sound start only after a click or a key press.
+  for (const gesture of ['pointerdown', 'keydown']) document.addEventListener(gesture, () => sound.wake(), { passive: true });
+  $('mute').addEventListener('click', () => {
+    sound.wake();
+    sound.setMuted(!sound.isMuted());
+    drawMute();
+    sound.play('click');
+  });
+  drawMute();
+
+  for (const button of document.querySelectorAll('dialog [data-close]')) button.addEventListener('click', () => button.closest('dialog').close());
+  $('confirm').addEventListener('close', () => {
+    confirmed = null;
+    confirmKind = null;
+  });
+  $('confirm-no').addEventListener('click', () => closeDialog('confirm'));
+  $('confirm-yes').addEventListener('click', () => {
+    const run = confirmed;
+    closeDialog('confirm');
+    if (run) run();
+  });
+
+  $('close-game').addEventListener('click', () => {
+    if (!state) return;
+    askConfirm({
+      title: 'Close this game?',
+      text: 'The hand being played is abandoned and does not count. The hands already finished stay in the result and in the ratings.',
+      yes: 'Close game',
+      no: 'Keep playing',
+      onYes: closeGame
+    });
+    confirmKind = 'close';
+  });
+
+  for (const id of ['open-personas', 'setup-personas', 'board-personas']) $(id).addEventListener('click', openPersonas);
+  for (const id of ['open-board', 'setup-board', 'personas-board', 'summary-board']) $(id).addEventListener('click', openBoard);
+  for (const id of ['open-games', 'setup-games', 'summary-games']) $(id).addEventListener('click', () => {
+    books.list = null;
+    openGames();
+  });
+  $('games-back').addEventListener('click', openGames);
+  $('open-invites').addEventListener('click', openInvites);
+  $('summary-again').addEventListener('click', () => {
+    closeDialog('summary');
+    dealAgain();
+  });
+  $('summary-change').addEventListener('click', () => {
+    closeDialog('summary');
+    if (state) openSetup();
+  });
+
+  $('pf-type').addEventListener('change', () => {
+    draft.type = $('pf-type').value;
+    draft.model = '';
+    draft.reasoning = true;
+    draft.style = 'balanced';
+    draft.note = '';
+    drawPersonaForm();
+  });
+  $('pf-name').addEventListener('input', () => {
+    $('pf-saved').textContent = '';
+    checkPersonaDraft();
+  });
+  $('pf-name').addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    createPersona();
+  });
+  $('pf-create').addEventListener('click', createPersona);
+
+  setInterval(tick, 100);
+  const events = new EventSource('/events');
+  let streamWorks = false;
+  // A fresh connection may be a restarted server whose version counter began again.
+  events.onopen = () => { lastVersion = -1; };
+  events.onmessage = () => {
+    streamWorks = true;
+    refresh().catch(error => console.error(error));
+  };
+  events.onerror = () => { if (streamWorks) showError(LOST_CONTACT); };
+  // The server sends a first notice the moment the stream opens. A Cloudflare quick tunnel holds the stream
+  // back, so that notice never comes: the page then closes it and reads the state every 1.5 s instead.
+  setTimeout(() => {
+    if (streamWorks) return;
+    events.close();
+    setInterval(() => refresh().catch(() => showError(LOST_CONTACT)), POLL_MS);
+  }, STREAM_GRACE_MS);
+  refresh().catch(error => console.error(error));
+})();
+</script>
+</body>
+</html>
