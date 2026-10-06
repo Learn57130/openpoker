@@ -105,7 +105,7 @@ export function lanAddresses() {
   const addresses = Object.values(os.networkInterfaces()).flat().filter(entry => entry && entry.family === 'IPv4' && !entry.internal).map(entry => entry.address);
   return [...addresses.filter(isHomeRange), ...addresses.filter(address => !isHomeRange(address))];
 }
-const STATUS_BY_CODE = Object.freeze({ NOT_RUNNING: 409, NAME_TAKEN: 409, PERSONA_LIMIT: 409, PERSONA_IN_USE: 409, PERSONA_NOT_FOUND: 404, PERSONAS_DISABLED: 404, GAME_NOT_FOUND: 404, HISTORY_DISABLED: 404, POLICY_NOT_FOUND: 404, LEARNER_DISABLED: 404, SEAT_NOT_FRIEND: 404, HOST_DEALS: 403, SEAT_NOT_OPEN: 409, NOT_YOUR_TURN: 409, NOT_WAITING: 409, ILLEGAL_ACTION: 400, INVALID_INPUT: 400, PLAYER_UNAVAILABLE: 409, MISSING_API_KEY: 409 });
+const STATUS_BY_CODE = Object.freeze({ NOT_RUNNING: 409, NAME_TAKEN: 409, PERSONA_LIMIT: 409, PERSONA_IN_USE: 409, PERSONA_NOT_FOUND: 404, PERSONAS_DISABLED: 404, GAME_NOT_FOUND: 404, HISTORY_DISABLED: 404, POLICY_NOT_FOUND: 404, LEARNER_DISABLED: 404, SEAT_NOT_FRIEND: 404, HOST_DEALS: 403, UNSAFE_OUTPUT: 409, SEAT_NOT_OPEN: 409, NOT_YOUR_TURN: 409, NOT_WAITING: 409, ILLEGAL_ACTION: 400, INVALID_INPUT: 400, PLAYER_UNAVAILABLE: 409, MISSING_API_KEY: 409 });
 
 /**
  * Local HTTP front end for one poker table. It listens on the loopback interface only, serves a
@@ -113,7 +113,7 @@ const STATUS_BY_CODE = Object.freeze({ NOT_RUNNING: 409, NAME_TAKEN: 409, PERSON
  * limit, or two to six seats (a player-type id, optionally with a model name). `/state`, `/action`, `/next` and `/new` serve the page; `/seats/N/view` and
  * `/seats/N/action` serve an external agent sitting in an open seat.
  */
-export async function startTableServer({ table, port = 8787, host = '127.0.0.1', lan = false, tunnel = null, pageExtras = '' }) {
+export async function startTableServer({ table, port = 8787, host = '127.0.0.1', lan = false, tunnel = null, pageExtras = '', jevKey = null }) {
   await fs.access(PAGE_PATH);
   const server = http.createServer(async (request, response) => {
     try {
@@ -175,6 +175,16 @@ export async function startTableServer({ table, port = 8787, host = '127.0.0.1',
         }
         if (body.turn_limit_ms !== undefined) options.turnLimitMs = body.turn_limit_ms;
         return send(response, 200, await table.newGame(options));
+      }
+      // The start screen's Jev key box. Answers say whether a key is set and where it lives, never the key;
+      // like every route here but the guest ones, only this computer's own pages reach it.
+      if (url.pathname === '/jev-key' && jevKey) {
+        if (request.method === 'GET') return send(response, 200, await jevKey.status());
+        if (request.method === 'POST') {
+          const body = await readJsonBody(request);
+          return send(response, 200, await jevKey.set(body.key, { remember: body.remember === true }));
+        }
+        if (request.method === 'DELETE') return send(response, 200, await jevKey.forget());
       }
       if (route === 'POST /close') {
         await readJsonBody(request);

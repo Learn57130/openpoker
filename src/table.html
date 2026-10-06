@@ -148,6 +148,11 @@
   .notes li { padding-left: 14px; position: relative; }
   .notes li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 6px; height: 1px; background: var(--brass); }
   .setup-foot { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  /* The Jev key box: the key goes to this computer's table only, and the page keeps no copy. */
+  .keybox { border: 1px solid var(--brass-dim); padding: 12px 14px; display: grid; gap: 9px; }
+  .keybox .key-row { display: flex; gap: 10px 14px; align-items: center; flex-wrap: wrap; margin: 0; }
+  .keybox .text-input { flex: 1 1 260px; width: auto; min-width: 0; }
+  .keybox .auto { font-size: 0.85rem; color: var(--muted); }
   .need { color: #f0c58f; font-size: 0.82rem; }
   .primary { background: var(--brass); color: var(--ink); border: 1px solid var(--brass); padding: 9px 18px 8px; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.78rem; font-weight: 600; }
   .primary:hover { background: #e3c07a; }
@@ -678,6 +683,7 @@
       <div class="rows" id="rows"></div>
     </div>
     <ul class="notes" id="setup-notes" hidden></ul>
+    <div class="keybox" id="jev-key" hidden></div>
     <div class="error" id="setup-error" hidden></div>
     <div class="setup-foot">
       <button class="primary" id="deal" hidden>Deal the cards</button>
@@ -1749,6 +1755,7 @@
     $('setup-close').hidden = idle;
     if (!mode) {
       $('setup-notes').hidden = true;
+      $('jev-key').hidden = true;
       $('deal-need').hidden = true;
       return;
     }
@@ -1762,6 +1769,136 @@
       drawRows(view, mode);
     }
     drawSetupNotes(view, mode);
+    drawJevKey(view, mode);
+  }
+
+  /* ---------- Jev key ---------- */
+
+  // The box asks the table where Jev's key is; the page never holds a copy beyond the field being typed in.
+  const jevKey = { status: null, loading: false, busy: false, error: '', replacing: false, seen: null, drawn: null };
+
+  function offersJev(view, mode) {
+    if (!mode || !typeOf(view, 'jev')) return false;
+    for (let seat = 0; seat < setup.count; seat += 1) {
+      if (optionsFor(view, mode, seat).some(option => option.id === 'jev')) return true;
+    }
+    return false;
+  }
+
+  async function loadJevKey() {
+    jevKey.loading = true;
+    try {
+      const response = await fetch('/jev-key', { cache: 'no-store' });
+      jevKey.status = response.ok ? await response.json() : null;
+    } catch {
+      jevKey.status = null;
+    } finally {
+      jevKey.loading = false;
+    }
+    if (state) drawJevKey(state, modeOf(setup.mode));
+  }
+
+  async function changeJevKey(method, body) {
+    jevKey.busy = true;
+    jevKey.error = '';
+    drawJevKey(state, modeOf(setup.mode));
+    try {
+      const response = await fetch('/jev-key', method === 'POST' ? { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { method });
+      const payload = await response.json();
+      if (response.ok) {
+        jevKey.status = payload;
+        jevKey.replacing = false;
+      } else {
+        jevKey.error = payload.error || 'The table did not take that key.';
+      }
+    } catch {
+      jevKey.error = LOST_CONTACT;
+    } finally {
+      jevKey.busy = false;
+      if (state) drawJevKey(state, modeOf(setup.mode));
+    }
+  }
+
+  function jevKeyForm(status) {
+    const form = el('form', 'key-row');
+    const input = el('input', 'text-input');
+    Object.assign(input, { type: 'password', id: 'jev-key-input', placeholder: 'TypeSafe API key', autocomplete: 'off', spellcheck: false, maxLength: 512, disabled: jevKey.busy });
+    input.setAttribute('aria-label', 'TypeSafe API key');
+    const remember = el('label', 'auto');
+    const box = el('input');
+    Object.assign(box, { type: 'checkbox', id: 'jev-key-remember', disabled: jevKey.busy });
+    remember.append(box, document.createTextNode('Remember on this computer'));
+    remember.title = `Saves the key in ${status.remember_file}, readable by you only`;
+    const use = el('button', 'primary', jevKey.busy ? 'Saving…' : 'Use key');
+    use.type = 'submit';
+    use.disabled = jevKey.busy;
+    form.append(input, remember, use);
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      const key = input.value.trim();
+      // The field is emptied at once: the key now travels only to this computer's table.
+      input.value = '';
+      if (key) changeJevKey('POST', { key, remember: box.checked });
+    });
+    return form;
+  }
+
+  function drawJevKey(view, mode) {
+    const box = $('jev-key');
+    if (GUEST || !setup.open || !offersJev(view, mode)) {
+      box.hidden = true;
+      return;
+    }
+    // Another page of this table may have added or removed the key: ask again when Jev's availability changes.
+    const available = Boolean(typeOf(view, 'jev')?.available);
+    if ((jevKey.status === null || jevKey.seen !== available) && !jevKey.loading) {
+      jevKey.seen = available;
+      loadJevKey();
+    }
+    const status = jevKey.status;
+    box.hidden = !status;
+    if (!status) return;
+    // Redrawn only when the box itself changes, so a state ping never wipes a half-typed key.
+    const drawn = JSON.stringify([status, jevKey.busy, jevKey.error, jevKey.replacing]);
+    if (drawn === jevKey.drawn && box.children.length) return;
+    jevKey.drawn = drawn;
+    const nodes = [el('span', 'caps', 'Jev key')];
+    if (!status.set || jevKey.replacing) {
+      nodes.push(el('p', 'hint', `Jev plays through TypeSafe's API and needs your TypeSafe API key. It stays on this computer: in the table's memory until the table stops, or saved in ${status.remember_file} (readable by you only) if you tick Remember. This page never shows it again, and friends' pages never see it.`));
+      nodes.push(jevKeyForm(status));
+      if (jevKey.replacing) {
+        const keep = el('button', 'ghost', 'Keep the current key');
+        keep.type = 'button';
+        keep.addEventListener('click', () => { jevKey.replacing = false; drawJevKey(state, modeOf(setup.mode)); });
+        const row = el('div', 'key-row');
+        row.append(keep);
+        nodes.push(row);
+      }
+    } else {
+      const where = status.source === 'page'
+        ? (status.remembered ? `added on this page and saved in ${status.file}.` : 'added on this page, kept in memory until the table stops.')
+        : status.source === 'environment'
+          ? 'from the TYPESAFE_API_KEY setting in the environment. Change it there.'
+          : `from ${status.file}.${status.can_forget ? '' : ' Edit that file to remove it.'}`;
+      nodes.push(el('p', 'hint', `Jev is ready: its key is ${where} A wrong key shows on Jev's first move, when the Bot plays for it and the table shows the error.`));
+      const row = el('div', 'key-row');
+      if (status.can_forget) {
+        const remove = el('button', 'ghost', jevKey.busy ? 'Removing…' : 'Remove key');
+        remove.type = 'button';
+        remove.disabled = jevKey.busy;
+        remove.addEventListener('click', () => changeJevKey('DELETE'));
+        row.append(remove);
+      }
+      if (status.source !== 'page') {
+        const other = el('button', 'ghost', 'Use another key');
+        other.type = 'button';
+        other.addEventListener('click', () => { jevKey.replacing = true; drawJevKey(state, modeOf(setup.mode)); });
+        row.append(other);
+      }
+      if (row.children.length) nodes.push(row);
+    }
+    if (jevKey.error) nodes.push(el('div', 'error', jevKey.error));
+    fill(box, nodes);
   }
 
   /* ---------- Table ---------- */

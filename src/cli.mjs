@@ -5,7 +5,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_MODEL, DEFAULT_OUTPUT_DIR } from './lib/constants.mjs';
-import { hasTypesafeApiKey, loadTypesafeApiKey } from './lib/env.mjs';
+import { createJevKeyStore } from './jev-key.mjs';
 import { makeRunId } from './lib/files.mjs';
 import { AttemptBudget, TypeSafeClient } from './lib/typesafe-client.mjs';
 import { AGENT_CLIS, createAgentCliAsk, inspectAgentCli, listOpencodeModels } from './agent-cli.mjs';
@@ -136,12 +136,12 @@ function jevDecisionStats(match, seat) {
 }
 
 // The Jev bot gets its own client so its attempt budget covers one match.
-async function createPokerBot(opponent, { hands, model, envFile, outputDir, random, style, policy, learn = false }) {
+async function createPokerBot(opponent, { hands, model, keys, outputDir, random, style, policy, learn = false }) {
   // The add-on's bot; `learn` asks it to keep what this game shows.
   if (opponent === 'learner') return await learner.createLearnerBot({ outputDir, random, policy, learn });
   if (opponent !== 'jev') return createRulePlayer({ name: 'Rule bot', random, style });
   const client = new TypeSafeClient({
-    apiKey: await loadTypesafeApiKey(envFile),
+    apiKey: await keys.get(),
     model,
     requestTimeoutMs: 20_000,
     // Two attempts per decision at most; a hand rarely needs more than six Jev decisions.
@@ -209,8 +209,10 @@ async function pokerWebCommand({ options, opponent, hands, stack, blinds, model,
   const port = options.port === undefined ? 8787 : Number(options.port);
   if (!Number.isSafeInteger(port) || port < 0 || port > 65535) throw usageError('--port must be an integer from 0 to 65535');
   const players = parseWebPlayers(options, opponent);
-  const jevAvailable = await hasTypesafeApiKey(options.env_file);
-  if (players.some(player => (player.type || player) === 'jev') && !jevAvailable) await loadTypesafeApiKey(options.env_file);
+  // Jev's key: from the environment or a .env file, or typed on the start screen while the table runs.
+  const keys = createJevKeyStore({ envFile: options.env_file, dataDir: outputDir });
+  let jevReady = await keys.has();
+  if (players.some(player => (player.type || player) === 'jev') && !jevReady) await keys.get();
   const clis = { claude: inspectAgentCli('claude'), codex: inspectAgentCli('codex'), opencode: inspectAgentCli('opencode') };
   const opencodeModels = clis.opencode.available ? listOpencodeModels() : [];
   // With the add-on: its seats, what it does with finished games, and its saved policies.
@@ -222,7 +224,7 @@ async function pokerWebCommand({ options, opponent, hands, stack, blinds, model,
     brand: learner?.BRAND ?? 'OpenPoker',
     playerTypes: [
       { id: 'human', name: 'You', category: 'human', available: true },
-      { id: 'jev', name: 'Jev', category: 'agent', models: ['jev-latest', 'jev-preview', 'jev-1.13.0'], styles: true, available: jevAvailable, unavailable_reason: jevAvailable ? null : 'TYPESAFE_API_KEY is not set' },
+      { id: 'jev', name: 'Jev', category: 'agent', models: ['jev-latest', 'jev-preview', 'jev-1.13.0'], styles: true, get available() { return jevReady; }, get unavailable_reason() { return jevReady ? null : 'it needs a TypeSafe API key; add one in the Jev key box below'; } },
       // Aliases named in `claude --help`, plus haiku, which the CLI also accepts. Any full model name works too.
       { id: 'claude', name: 'Claude', category: 'agent', models: ['fable', 'opus', 'sonnet', 'haiku'], reasoning: true, styles: true, style_notes: true, slow: true, available: clis.claude.available, unavailable_reason: clis.claude.unavailable_reason },
       // Codex model names depend on the account, so none is suggested.
@@ -274,7 +276,7 @@ async function pokerWebCommand({ options, opponent, hands, stack, blinds, model,
           throw Object.assign(new Error(error.message), { code: error.code === 'POLICY_NOT_FOUND' ? 'PLAYER_UNAVAILABLE' : error.code });
         }
       }
-      return await createPokerBot(type, { hands, model: context.model || model, envFile: options.env_file, outputDir, random, style: context.style });
+      return await createPokerBot(type, { hands, model: context.model || model, keys, outputDir, random, style: context.style });
     },
     onMatchEnd: async (match, context) => {
       if (learning) {
@@ -298,7 +300,20 @@ async function pokerWebCommand({ options, opponent, hands, stack, blinds, model,
     tunnel.ready.then(({ hostname }) => guest.allowHost(hostname), () => {});
     process.once('exit', () => tunnel.stop());
   }
-  const server = await startTableServer({ table, port, lan: Boolean(options.lan), tunnel, pageExtras: learner?.PAGE_EXTRAS ?? '' });
+  // The start screen's Jev key box. Every answer says only whether a key is set and where; never the key.
+  const jevKey = {
+    async refreshed(status) {
+      if (status.set !== jevReady) {
+        jevReady = status.set;
+        table.playerTypesChanged();
+      }
+      return status;
+    },
+    async status() { return this.refreshed(await keys.status()); },
+    async set(key, options) { return this.refreshed(await keys.set(key, options)); },
+    async forget() { return this.refreshed(await keys.forget()); }
+  };
+  const server = await startTableServer({ table, port, lan: Boolean(options.lan), tunnel, pageExtras: learner?.PAGE_EXTRAS ?? '', jevKey });
   // Games the add-on has not read yet.
   learning?.learnFromGames();
   // Seats named on the command line start a game at once; otherwise the page asks for a mode first.
@@ -378,7 +393,7 @@ async function pokerCommand(args) {
 
   if (options.web) return await pokerWebCommand({ options, opponent, hands, stack, blinds, model, outputDir });
   // A game played in the terminal is kept for the add-on's bot; one measured by --auto is not.
-  const bot = await createPokerBot(opponent, { hands, model, envFile: options.env_file, outputDir, random: botRandom, policy: options.policy, learn: opponent === 'learner' && !auto });
+  const bot = await createPokerBot(opponent, { hands, model, keys: createJevKeyStore({ envFile: options.env_file, dataDir: outputDir }), outputDir, random: botRandom, policy: options.policy, learn: opponent === 'learner' && !auto });
 
   const startedAt = Date.now();
   let match;
@@ -464,7 +479,7 @@ async function doctorCommand(args) {
       codex: { ready: tools.codex.available, version: tools.codex.version, needs: 'the codex command, signed in' },
       opencode: { ready: tools.opencode.available, version: tools.opencode.version, needs: 'the opencode command' },
       ...Object.fromEntries(EXTRA_PLAYERS.map(extra => [extra.id, extra.doctor()])),
-      jev: { ready: await hasTypesafeApiKey(options.env_file), needs: 'TYPESAFE_API_KEY in the environment or in .env in the folder you start from' },
+      jev: { ready: await createJevKeyStore({ envFile: options.env_file, dataDir: outputDir }).has(), needs: options.env_file ? 'TYPESAFE_API_KEY in the environment or in the --env-file file, or add it on the start screen' : 'TYPESAFE_API_KEY in the environment, in .env in the folder you start from or in the data folder, or add it on the start screen' },
       open_seat: { ready: true }
     },
     friends: {

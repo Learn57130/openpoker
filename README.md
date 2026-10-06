@@ -20,6 +20,7 @@ Status: alpha (0.1.0). It runs locally with Node.js and has no npm dependencies.
 | [Game history](docs/specs/2026-10-01-poker-game-history.md) | Every game, hand by hand, and what each hand may show |
 | [Friends' table](docs/specs/2026-10-01-poker-friends-table.md) | Friends on your Wi-Fi playing from their own devices |
 | [Friends from any network](docs/specs/2026-10-05-poker-tunnel.md) | A Cloudflare quick tunnel to a guest-only listener |
+| [Jev key from the start screen](docs/specs/2026-10-06-jev-key-from-the-page.md) | Adding Jev's TypeSafe key on the page, where it is kept, and what never shows it |
 
 ## Quick start
 
@@ -55,7 +56,7 @@ To type `openpoker` anywhere instead, run `npm link` once in the folder: `openpo
 | Claude | `claude` | The `claude` command (Claude Code), signed in |
 | Codex | `codex` | The `codex` command, signed in |
 | OpenCode | `opencode` | The `opencode` command |
-| Jev | `jev` | A `TYPESAFE_API_KEY` from TypeSafe, in the environment or a `.env` file in the folder you start from |
+| Jev | `jev` | A TypeSafe API key: paste it in the start screen's Jev key box (tick Remember to keep it in `~/.openpoker/.env`), or set `TYPESAFE_API_KEY` in the environment or a `.env` file in the folder you start from. A wrong key shows on Jev's first move, when the Bot plays for it |
 | Open seat | `agent` | Your own program, through a small HTTP seat protocol (see `examples/poker-agent.mjs`) |
 | Friend | `friend` | `--lan` or `--tunnel`; the friend opens their private link |
 

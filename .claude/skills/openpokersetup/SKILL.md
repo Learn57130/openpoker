@@ -43,12 +43,12 @@ The server runs until it is stopped (Ctrl-C). Stop it when the person is done, e
 Each AI player uses a tool the person has already installed and signed in to; OpenPoker reads no keys for them.
 
 - **Claude:** `claude` (Claude Code). **Codex:** `codex`. **OpenCode:** `opencode`.
-- **Jev:** a `TYPESAFE_API_KEY` in the environment or in a `.env` file in the folder the table starts from.
+- **Jev:** a TypeSafe API key. The simplest way: the person pastes it into the Jev key box on the start screen (Remember keeps it in `~/.openpoker/.env`). It also works from `TYPESAFE_API_KEY` in the environment or a `.env` file in the folder the table starts from.
 - **Open seat:** the person's own program, through the seat protocol in `examples/poker-agent.mjs`.
 
 The person signs in to each tool themselves, under that provider's terms: for Claude and Codex an API key is the clearly permitted way to run them from a program. See the README section "AI tools and their terms".
 
-Never type, ask for, print or store a password, API key or token on their behalf. Never commit `.env`.
+Never type, ask for, print or store a password, API key or token on their behalf: the person types the Jev key into the box themselves. Never commit `.env`.
 
 At the standard 30-second turn clock, slow players can time out (they then check or fold). Suggest a model with reasoning off (`@fast`, for example `claude:haiku@fast`) or a longer clock (Long 60 s on the start screen, or `--turn-limit 60`).
 

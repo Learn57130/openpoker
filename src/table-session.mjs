@@ -818,6 +818,11 @@ export function createTable({
       return await personaStore.remove(String(id));
     },
 
+    // A player type became available or unavailable (a Jev key added or removed): every page redraws.
+    playerTypesChanged() {
+      notify();
+    },
+
     snapshot() {
       const { turn_limit_ms: gameLimit, ...state } = current ? structuredClone(current.state) : { turn_limit_ms: lastTurnLimit, status: 'idle', seed: null, players: [], spectator: false, hand: null, totals: null, warnings: [], match: null, error: null };
       return {
