@@ -1,6 +1,6 @@
 {
   "name": "openpoker",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Texas Hold'em for two to six seats, with play chips only, where people, rule bots and AI agents (Claude, Codex, OpenCode, Jev, or your own program) play each other.",
   "type": "module",
   "bin": {

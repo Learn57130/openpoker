@@ -4,7 +4,12 @@ Releases are tagged in Git. Changes after the latest tag go under Unreleased.
 
 ## Unreleased
 
+Nothing yet.
+
+## v0.1.1 — 2026-10-06
+
 - Add Jev's TypeSafe key on the start screen: when a mode can seat Jev, a Jev key box takes the key, makes Jev available at once, and with Remember keeps it in `~/.openpoker/.env` (readable by you only) for the next start. Remove key takes it out again. The key goes only to the table on your computer and is never shown back, sent to friends' pages, or printed by `openpoker doctor`, which now also finds a key in `~/.openpoker/.env`.
+- The README opens with a picture of the table, and its example command now seats `opencode` instead of a player type OpenPoker does not have.
 
 ## v0.1.0 — 2026-10-06
 

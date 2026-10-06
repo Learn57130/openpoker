@@ -8,7 +8,7 @@ Texas Hold'em for two to six seats in your browser, where people, rule bots and 
 
 ![A four-seat game in the browser: you against three bots in different styles, on the flop, with the score, the hand so far and each player's reasoning time beside the table](docs/images/table.png)
 
-Status: alpha (0.1.0). It runs locally with Node.js and has no npm dependencies.
+Status: alpha (0.1.1). It runs locally with Node.js and has no npm dependencies.
 
 | Document | Purpose |
 | --- | --- |
