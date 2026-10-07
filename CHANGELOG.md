@@ -4,7 +4,7 @@ Releases are tagged in Git. Changes after the latest tag go under Unreleased.
 
 ## Unreleased
 
-Nothing yet.
+- Seat plates no longer spill past their box: a seat's playing style sits on its own line under the chips and reasoning time, and a long one is cut short with an ellipsis.
 
 ## v0.1.1 — 2026-10-06
 
