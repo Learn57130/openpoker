@@ -285,13 +285,14 @@
   }
   .name { font: italic 1em/1.25 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .hero .name { font-size: 1.22em; }
-  .line { display: flex; justify-content: center; align-items: baseline; gap: 0.6em; font-size: 0.8em; line-height: 1.3; white-space: nowrap; }
+  .line { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 0 0.6em; font-size: 0.8em; line-height: 1.3; white-space: nowrap; }
   .hero .line { font-size: 0.9em; }
   .stack { color: var(--brass); letter-spacing: 0.03em; }
   .stack small { color: var(--muted); letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.68em; margin-left: 0.4em; }
   .seat:not(.hero) .stack small { display: none; }
   .avg { color: var(--muted); font-size: 0.88em; }
-  .plate .style { display: block; color: var(--brass); font: italic 0.9em var(--display); letter-spacing: 0; text-transform: none; }
+  /* The style takes a row of its own below the chips, and is cut short rather than spilling past the plate. */
+  .plate .style { flex: 0 0 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--brass); font: italic 0.9em var(--display); letter-spacing: 0; text-transform: none; }
   .plate .style:empty { display: none; }
   .avg:empty { display: none; }
 
