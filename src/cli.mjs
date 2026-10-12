@@ -15,7 +15,9 @@ import { runPokerDecision } from './poker-decision.mjs';
 import { createGameHistory } from './game-history.mjs';
 import { writePokerLog } from './log.mjs';
 import { MATCH_LIMITS, playMatch } from './match.mjs';
-import { createPersonaStore } from './persona-store.mjs';
+import { createLeaderboardStore } from './leaderboard-store.mjs';
+import { LESSON_LIMITS, REVIEW_SYSTEM_PROMPT } from './lessons.mjs';
+import { createNotebookStore } from './notebook-store.mjs';
 import { createJevPlayer, createModelPlayer, createRulePlayer } from './players.mjs';
 import { lanAddresses, startGuestServer, startTableServer } from './server.mjs';
 import { startQuickTunnel } from './tunnel.mjs';
@@ -67,7 +69,7 @@ ${POKER_USAGE}
 
 Options:
 ${POKER_OPTION_USAGE}
-  --output-dir DIR      Where saved games and personas live (default ~/.openpoker, or OPENPOKER_HOME)
+  --output-dir DIR      Where saved games, ratings and lessons live (default ~/.openpoker, or OPENPOKER_HOME)
   --env-file FILE       File holding TYPESAFE_API_KEY for the optional Jev player (default .env in the current folder)
   --format json         Print machine-readable output
 `;
@@ -226,11 +228,11 @@ async function pokerWebCommand({ options, opponent, hands, stack, blinds, model,
       { id: 'human', name: 'You', category: 'human', available: true },
       { id: 'jev', name: 'Jev', category: 'agent', models: ['jev-latest', 'jev-preview', 'jev-1.13.0'], styles: true, get available() { return jevReady; }, get unavailable_reason() { return jevReady ? null : 'it needs a TypeSafe API key; add one in the Jev key box below'; } },
       // Aliases named in `claude --help`, plus haiku, which the CLI also accepts. Any full model name works too.
-      { id: 'claude', name: 'Claude', category: 'agent', models: ['fable', 'opus', 'sonnet', 'haiku'], reasoning: true, styles: true, style_notes: true, slow: true, available: clis.claude.available, unavailable_reason: clis.claude.unavailable_reason },
+      { id: 'claude', name: 'Claude', category: 'agent', models: ['fable', 'opus', 'sonnet', 'haiku'], reasoning: true, styles: true, style_notes: true, lessons: true, slow: true, available: clis.claude.available, unavailable_reason: clis.claude.unavailable_reason },
       // Codex model names depend on the account, so none is suggested.
-      { id: 'codex', name: 'Codex', category: 'agent', models: [], reasoning: true, styles: true, style_notes: true, slow: true, available: clis.codex.available, unavailable_reason: clis.codex.unavailable_reason },
+      { id: 'codex', name: 'Codex', category: 'agent', models: [], reasoning: true, styles: true, style_notes: true, lessons: true, slow: true, available: clis.codex.available, unavailable_reason: clis.codex.unavailable_reason },
       // OpenCode names models as provider/model; the suggestions come from `opencode models`.
-      { id: 'opencode', name: 'OpenCode', category: 'agent', models: opencodeModels, reasoning: true, styles: true, style_notes: true, slow: true, available: clis.opencode.available, unavailable_reason: clis.opencode.unavailable_reason },
+      { id: 'opencode', name: 'OpenCode', category: 'agent', models: opencodeModels, reasoning: true, styles: true, style_notes: true, lessons: true, slow: true, available: clis.opencode.available, unavailable_reason: clis.opencode.unavailable_reason },
       ...EXTRA_PLAYERS.map(player => player.describe()),
       { id: 'rule', name: 'Bot', category: 'bot', styles: true, available: true },
       ...(learner ? [learner.playerType(policies)] : []),
@@ -239,8 +241,15 @@ async function pokerWebCommand({ options, opponent, hands, stack, blinds, model,
       { id: 'friend', name: 'Friend', category: 'friend', available: Boolean(options.lan || options.tunnel), unavailable_reason: options.lan || options.tunnel ? null : 'start the table with --lan (friends on your Wi-Fi) or --tunnel (friends anywhere)' }
     ],
     defaultPlayers: players,
-    // Saved personas and their ratings live beside the hand logs, in a private file.
-    personaStore: createPersonaStore({ file: path.join(path.resolve(outputDir), 'poker', 'personas.json') }),
+    // Ratings by player key and the notebook AI players learn from live beside the hand logs, in private files.
+    leaderboardStore: createLeaderboardStore({ file: path.join(path.resolve(outputDir), 'poker', 'leaderboard.json') }),
+    notebookStore: createNotebookStore({ file: path.join(path.resolve(outputDir), 'poker', 'notebook.json') }),
+    // A review of a finished game runs the seat's own command-line tool with the review's system prompt.
+    createReviewAsk: (type, { model: seatModel, reasoning }) => {
+      if (!Object.hasOwn(AGENT_CLIS, type)) throw Object.assign(new Error(`${type} cannot review a game`), { code: 'PLAYER_UNAVAILABLE' });
+      const flagModel = { claude: options.claude_model, codex: options.codex_model, opencode: options.opencode_model || DEFAULT_OPENCODE_MODEL }[type];
+      return createAgentCliAsk({ kind: type, model: seatModel || flagModel, reasoning, timeoutMs: LESSON_LIMITS.reviewMs, systemPrompt: REVIEW_SYSTEM_PROMPT });
+    },
     // The game history log reads the match logs this table writes.
     gameHistory: createGameHistory({ directory: path.join(path.resolve(outputDir), 'poker') }),
     // The add-on's dashboard data, when it is installed.
@@ -258,12 +267,12 @@ async function pokerWebCommand({ options, opponent, hands, stack, blinds, model,
         // OpenCode's own default model may not be one the account can use, so a free one known to answer is the fallback.
         const flagModel = { claude: options.claude_model, codex: options.codex_model, opencode: options.opencode_model || DEFAULT_OPENCODE_MODEL }[type];
         const ask = createAgentCliAsk({ kind: type, model: context.model || flagModel, reasoning: context.reasoning !== false });
-        return createModelPlayer({ name: AGENT_CLIS[type].name, kind: type, ask, random, style: context.style, styleNote: context.styleNote });
+        return createModelPlayer({ name: AGENT_CLIS[type].name, kind: type, ask, random, style: context.style, styleNote: context.styleNote, lessons: context.lessons ?? [] });
       }
       const extra = extraPlayer(type);
       if (extra) {
         const ask = extra.createAsk({ model: context.model || options[optionKey(extra.option)] || null, reasoning: context.reasoning !== false });
-        return createModelPlayer({ name: extra.name, kind: type, ask, random, style: context.style, styleNote: context.styleNote });
+        return createModelPlayer({ name: extra.name, kind: type, ask, random, style: context.style, styleNote: context.styleNote, lessons: context.lessons ?? [] });
       }
       if (type === 'learner') {
         const policy = context.model || (policies.includes(learner.DEFAULT_POLICY) || !policies.length ? learner.DEFAULT_POLICY : policies[0]);

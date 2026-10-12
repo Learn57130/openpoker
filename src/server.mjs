@@ -105,7 +105,7 @@ export function lanAddresses() {
   const addresses = Object.values(os.networkInterfaces()).flat().filter(entry => entry && entry.family === 'IPv4' && !entry.internal).map(entry => entry.address);
   return [...addresses.filter(isHomeRange), ...addresses.filter(address => !isHomeRange(address))];
 }
-const STATUS_BY_CODE = Object.freeze({ NOT_RUNNING: 409, NAME_TAKEN: 409, PERSONA_LIMIT: 409, PERSONA_IN_USE: 409, PERSONA_NOT_FOUND: 404, PERSONAS_DISABLED: 404, GAME_NOT_FOUND: 404, HISTORY_DISABLED: 404, POLICY_NOT_FOUND: 404, LEARNER_DISABLED: 404, SEAT_NOT_FRIEND: 404, HOST_DEALS: 403, UNSAFE_OUTPUT: 409, SEAT_NOT_OPEN: 409, NOT_YOUR_TURN: 409, NOT_WAITING: 409, ILLEGAL_ACTION: 400, INVALID_INPUT: 400, PLAYER_UNAVAILABLE: 409, MISSING_API_KEY: 409 });
+const STATUS_BY_CODE = Object.freeze({ NOT_RUNNING: 409, LEADERBOARD_DISABLED: 404, PLAYER_NOT_FOUND: 404, NOTEBOOK_DISABLED: 404, LESSON_NOT_FOUND: 404, GAME_NOT_FOUND: 404, HISTORY_DISABLED: 404, POLICY_NOT_FOUND: 404, LEARNER_DISABLED: 404, SEAT_NOT_FRIEND: 404, HOST_DEALS: 403, UNSAFE_OUTPUT: 409, SEAT_NOT_OPEN: 409, NOT_YOUR_TURN: 409, NOT_WAITING: 409, ILLEGAL_ACTION: 400, INVALID_INPUT: 400, PLAYER_UNAVAILABLE: 409, MISSING_API_KEY: 409 });
 
 /**
  * Local HTTP front end for one poker table. It listens on the loopback interface only, serves a
@@ -171,7 +171,7 @@ export async function startTableServer({ table, port = 8787, host = '127.0.0.1',
         const body = await readJsonBody(request);
         const options = {};
         if (Array.isArray(body.players)) {
-          options.players = body.players.slice(0, MAX_SEATS + 1).map(entry => (entry && typeof entry === 'object' && entry.persona !== undefined && entry.persona !== null ? { persona: entry.persona } : entry && typeof entry === 'object' ? { type: String(entry.type), model: entry.model ?? null, reasoning: entry.reasoning ?? null, style: entry.style ?? null, style_note: entry.style_note ?? null, name: entry.name ?? null } : String(entry)));
+          options.players = body.players.slice(0, MAX_SEATS + 1).map(entry => (entry && typeof entry === 'object' ? { type: String(entry.type), model: entry.model ?? null, reasoning: entry.reasoning ?? null, style: entry.style ?? null, style_note: entry.style_note ?? null, name: entry.name ?? null } : String(entry)));
         }
         if (body.turn_limit_ms !== undefined) options.turnLimitMs = body.turn_limit_ms;
         return send(response, 200, await table.newGame(options));
@@ -190,15 +190,14 @@ export async function startTableServer({ table, port = 8787, host = '127.0.0.1',
         await readJsonBody(request);
         return send(response, 200, await table.close());
       }
-      // Saved personas: named players with a rating and a history log.
-      if (route === 'GET /personas') return send(response, 200, { personas: await table.personas() });
-      if (route === 'POST /personas') {
-        const body = await readJsonBody(request);
-        return send(response, 201, { persona: await table.createPersona(body) });
+      // Ratings by player key (a type and its model, or a bot's style). A key holds colons and slashes, so it travels as a query.
+      if (route === 'GET /leaderboard') {
+        const key = url.searchParams.get('key');
+        return send(response, 200, key === null ? { players: await table.leaderboard() } : { player: await table.leaderboardEntry(key.slice(0, 120)) });
       }
-      const personaRoute = url.pathname.match(/^\/personas\/([A-Za-z0-9-]{1,40})$/);
-      if (personaRoute && request.method === 'GET') return send(response, 200, { persona: await table.persona(personaRoute[1]) });
-      if (personaRoute && request.method === 'DELETE') return send(response, 200, await table.removePersona(personaRoute[1]));
+      // The notebook AI players learn from, and its switch. Host routes only, like everything here but the guest routes.
+      if (route === 'GET /notebook') return send(response, 200, await table.notebook());
+      if (route === 'POST /notebook') return send(response, 200, await table.changeNotebook(await readJsonBody(request)));
       // The game history log: saved games and the one being played, hand by hand.
       if (route === 'GET /games') return send(response, 200, await table.games());
       const gameRoute = url.pathname.match(/^\/games\/([A-Za-z0-9-]{1,40})$/);

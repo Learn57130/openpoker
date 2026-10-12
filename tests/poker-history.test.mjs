@@ -94,6 +94,8 @@ async function savedGames() {
   await writeLog(directory, report({ runId: ids.auto, mode: 'auto', names: ['Rule bot (baseline)', 'Rule bot'], createdAt: '2026-10-01T11:00:00.000Z' }));
   await fs.writeFile(path.join(directory, `${ids.broken}.json`), '{ not json');
   await fs.writeFile(path.join(directory, 'personas.json'), JSON.stringify({ schema_version: 'jev/poker-personas/v1', personas: [] }));
+  await fs.writeFile(path.join(directory, 'leaderboard.json'), JSON.stringify({ schema_version: 'jev/poker-leaderboard/v1', players: [] }));
+  await fs.writeFile(path.join(directory, 'notebook.json'), JSON.stringify({ schema_version: 'jev/poker-notebook/v1', learning: true, lessons: [], facts: [] }));
   await fs.writeFile(path.join(directory, 'notes.txt'), 'not a game');
   return directory;
 }

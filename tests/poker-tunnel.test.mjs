@@ -58,7 +58,7 @@ test('the guest listener treats every request as a guest, even one from this com
     assert.equal((await call(guest.port, { path: '/play', host: `${TUNNEL_HOST}:8787` })).status, 403);
 
     // Owner routes do not exist here, though every request comes from 127.0.0.1.
-    for (const [method, path] of [['GET', '/state'], ['POST', '/new'], ['POST', '/close'], ['POST', '/next'], ['POST', '/action'], ['GET', '/personas'], ['GET', '/games'], ['GET', '/learner'], ['GET', '/invites'], ['GET', '/seats/2/view'], ['POST', '/seats/2/action']]) {
+    for (const [method, path] of [['GET', '/state'], ['POST', '/new'], ['POST', '/close'], ['POST', '/next'], ['POST', '/action'], ['GET', '/leaderboard'], ['GET', '/notebook'], ['POST', '/notebook'], ['GET', '/games'], ['GET', '/learner'], ['GET', '/invites'], ['GET', '/seats/2/view'], ['POST', '/seats/2/action']]) {
       const answer = await call(guest.port, { method, path, body: method === 'POST' ? { label: 'fold' } : null });
       assert.equal(answer.status, 404, `${method} ${path}`);
     }

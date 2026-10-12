@@ -1,7 +1,7 @@
 # Poker personas, leaderboard, game summary and sound — Design Spec
 
 - **Date:** 2026-09-30
-- **Status:** Built
+- **Status:** Built. Personas, their ratings and the persona leaderboard are superseded by the [learning loop and model leaderboard spec](2026-10-12-learning-loop.md) (2026-10-12). Closing a game, the game summary and sound still apply.
 - **Context:** It extends the [seats, models and clock spec](2026-09-30-poker-seats-models-clock.md).
 
 ## Goal
