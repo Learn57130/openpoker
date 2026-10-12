@@ -41,7 +41,7 @@ The host can look back at every game played at the table: who played, who won, a
 
 **How a game ended.** The log records `hands_complete`, `player_out_of_chips` or `player_quit`. The last covers a game closed from the page, replaced by a new game, or stopped with the server, so it shows as "Ended early".
 
-**Current game.** `createTable` takes `gameHistory` the way it takes `personaStore`. At the end of each hand the session keeps a compact record of it on the running game (not in the page snapshot, so the snapshot does not grow). `games()` returns `{ current, games }`, with `current` set only while a game is running; `game('current')` returns its detail.
+**Current game.** `createTable` takes `gameHistory` the way it takes its other stores (`personaStore` when this was written; `leaderboardStore` and `notebookStore` since 2026-10-12). At the end of each hand the session keeps a compact record of it on the running game (not in the page snapshot, so the snapshot does not grow). `games()` returns `{ current, games }`, with `current` set only while a game is running; `game('current')` returns its detail.
 
 **Server.** `GET /games` returns `{ current, games }`; `GET /games/:id` returns `{ game }` for a run id or `current`. An unknown id is `404 GAME_NOT_FOUND`. Like `/state`, these routes can show the person's own past cards, so an agent in an open seat should read only `/seats/N/view`.
 

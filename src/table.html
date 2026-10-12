@@ -502,7 +502,7 @@
   .hint { color: var(--muted); font-size: 0.8rem; line-height: 1.45; margin: 0; }
   code { font-family: var(--mono); font-size: 0.92em; color: var(--cream); }
 
-  /* Header controls added with personas, the close button and sound. */
+  /* Header controls: the close button, the dialogs and sound. */
   .ghost.warn { border-color: #8c4037; color: #f0a59b; }
   .ghost.warn:hover { background: rgba(184, 55, 43, 0.22); }
   .toggle { display: inline-flex; align-items: center; gap: 8px; }
@@ -510,7 +510,7 @@
   .toggle[aria-checked="false"] b { background: transparent; color: var(--muted); box-shadow: inset 0 0 0 1px var(--brass-dim); }
   header .ghost:focus-visible, .setup .ghost:focus-visible, dialog.sheet :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-  /* A persona's skill rating beside its name on the seat plate. */
+  /* A seat's rating (its player key's) beside its name on the seat plate. */
   .who-row { display: flex; justify-content: center; align-items: baseline; gap: 0.42em; min-width: 0; }
   .who-row .name { min-width: 0; }
   .rating { flex: none; font: 600 0.62em/1.5 var(--label); letter-spacing: 0.06em; padding: 0 0.42em; color: var(--brass); border: 1px solid var(--brass-dim); }
@@ -518,13 +518,11 @@
   .rating:empty { display: none; }
   .seat.winner .rating { color: var(--gold-pale); border-color: var(--gold); }
 
-  /* Start screen: the way in to personas, and a seat held by one. */
+  /* Start screen: the way in to the notebook, the leaderboard and the history. */
   .setup-top { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; }
   .setup-top .caps { flex: 1 1 260px; }
-  .persona-line { grid-column: 3 / -1; min-width: 0; color: var(--brass); font: italic 0.98rem var(--display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  @media (max-width: 600px) { .persona-line { grid-column: 1 / -1; } }
 
-  /* Dialogs: personas, leaderboard, history log, game summary and the confirm step. */
+  /* Dialogs: notebook, leaderboard, rating trend, game summary and the confirm step. */
   dialog.sheet {
     width: min(780px, calc(100vw - 30px)); max-width: none; max-height: calc(100vh - 30px); overflow: auto;
     padding: 20px 22px 22px; color: var(--text); font-family: var(--label);
@@ -576,26 +574,15 @@
   tr.rank1 td.skill-cell, tr.rank2 td.skill-cell, tr.rank3 td.skill-cell, td.skill-cell { font: 1.15rem var(--display); color: var(--brass); }
   tr.rank1 td.skill-cell { color: var(--gold); }
 
-  .plist { display: grid; gap: 6px; max-height: min(300px, 34vh); overflow: auto; }
-  .pitem { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 4px 12px; align-items: center; padding: 8px 12px; border: 1px solid var(--brass-faint); background: rgba(8, 17, 15, 0.5); }
-  .pitem .pwho { min-width: 0; display: grid; gap: 1px; }
-  .pitem .pname { font: italic 1.18rem var(--display); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* The notebook: lessons AI players wrote, one per row, each with who wrote it. */
+  .plist { display: grid; gap: 6px; max-height: min(340px, 40vh); overflow: auto; }
+  .pitem { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; padding: 8px 12px; border: 1px solid var(--brass-faint); background: rgba(8, 17, 15, 0.5); }
+  .pitem .pwho { min-width: 0; display: grid; gap: 2px; }
+  .pitem .ptext { font: italic 1.05rem/1.35 var(--display); overflow-wrap: anywhere; }
   .pitem .pmeta { color: var(--muted); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .skill { display: inline-flex; align-items: baseline; gap: 7px; white-space: nowrap; }
-  .skill b { font: 1.3rem var(--display); font-weight: 400; color: var(--brass); }
-  @media (max-width: 560px) { .pitem { grid-template-columns: minmax(0, 1fr) auto; } }
-  .pform { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; border-top: 1px solid var(--brass-faint); padding-top: 14px; }
-  .pform > h3 { grid-column: 1 / -1; margin: 0; font: italic 1.25rem var(--display); color: var(--brass); font-weight: 400; }
-  .pform > .wide, .pform .style-line { grid-column: 1 / -1; margin: 0; }
-  .pf-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px 12px; }
-  .pf-controls:empty { display: none; }
-  .pf-controls > .hint { grid-column: 1 / -1; }
-  .field { display: grid; gap: 5px; min-width: 0; align-content: start; }
-  .field .reason { justify-self: start; }
   .text-input { display: block; width: 100%; background: var(--ink); border: 1px solid var(--brass-dim); color: var(--text); padding: 7px 11px; font: 0.95rem var(--label); border-radius: 0; }
   .text-input::placeholder { color: var(--muted); }
   .text-input:focus { outline: none; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
-  @media (max-width: 560px) { .pform, .pf-controls { grid-template-columns: minmax(0, 1fr); } }
 
   .verdict { font: italic 1.5rem/1.25 var(--display); overflow-wrap: anywhere; }
   .verdict b { color: var(--gold); font-weight: 400; text-shadow: 0 0 0.8em rgba(255, 215, 106, 0.6); }
@@ -641,8 +628,8 @@
   .invite button { grid-row: 1 / span 2; grid-column: 2; }
   .name-box { display: block; width: 100%; max-width: 260px; background: var(--ink); border: 1px solid var(--brass-dim); color: var(--text); padding: 7px 11px; font: 0.95rem var(--label); }
   .name-box:focus { outline: none; border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass); }
-  body.guest #close-game, body.guest #open-personas, body.guest #open-board, body.guest #open-games, body.guest .addon-slot, body.guest #open-invites, body.guest #change,
-  body.guest #summary-again, body.guest #summary-change, body.guest #summary-board, body.guest #summary-games, body.guest #setup { display: none !important; }
+  body.guest #close-game, body.guest #open-notebook, body.guest #open-board, body.guest #open-games, body.guest .addon-slot, body.guest #open-invites, body.guest #change,
+  body.guest #summary-again, body.guest #summary-change, body.guest #summary-board, body.guest #summary-notebook, body.guest #summary-games, body.guest #setup { display: none !important; }
   .waiting { color: var(--muted); font: italic 1.05rem var(--display); }
   @media (prefers-reduced-motion: reduce) { dialog.sheet[open] { animation: none; } .meter i { transition: none; } }
 </style>
@@ -654,7 +641,7 @@
   <div class="current">
     <span class="caps" id="handcount">Hold'em</span><span class="caps" id="modename"></span>
     <button class="ghost warn" id="close-game" hidden>Close game</button>
-    <button class="ghost" id="open-personas" hidden>Personas</button>
+    <button class="ghost" id="open-notebook" hidden>Notebook</button>
     <button class="ghost" id="open-board" hidden>Leaderboard</button>
     <button class="ghost" id="open-games" hidden>History</button>
     <span class="addon-slot" id="addon-header"></span>
@@ -668,7 +655,7 @@
   <div class="setup-card">
     <div class="setup-top">
       <div class="caps"><span id="brand-caps">OpenPoker</span> · Hold'em for two to six · play chips only</div>
-      <button class="ghost" id="setup-personas" hidden>Personas</button>
+      <button class="ghost" id="setup-notebook" hidden>Notebook</button>
       <button class="ghost" id="setup-board" hidden>Leaderboard</button>
       <button class="ghost" id="setup-games" hidden>History</button>
       <span class="addon-slot" id="addon-setup"></span>
@@ -680,6 +667,7 @@
       <div class="dials">
         <div class="dial"><span class="caps" id="count-label">Seats</span><div class="seg" id="count" role="group" aria-labelledby="count-label"></div></div>
         <div class="dial"><span class="caps" id="limit-label">Turn limit</span><div class="seg" id="limit" role="group" aria-labelledby="limit-label"></div></div>
+        <div class="dial" id="learn-dial" hidden><span class="caps" id="learn-label">AI players learn</span><div class="seg" id="learn" role="group" aria-labelledby="learn-label"></div></div>
       </div>
       <div class="rows" id="rows"></div>
     </div>
@@ -749,45 +737,43 @@
   <div class="facts" id="summary-facts"></div>
   <div class="scroll-x"><table class="sheet-table" id="summary-table"></table></div>
   <div id="summary-ratings-wrap" hidden>
-    <div class="caps">Skill ratings after this game</div>
+    <div class="caps">Ratings after this game</div>
     <div class="ratings" id="summary-ratings"></div>
   </div>
+  <p class="hint" id="summary-lessons" role="status" hidden></p>
   <p class="hint" id="summary-note" hidden></p>
   <div class="sheet-foot">
     <button class="primary" id="summary-again">Deal again</button>
     <button class="ghost" id="summary-change">Change game</button>
-    <button class="ghost" id="summary-board">Leaderboard</button>
+    <button class="ghost" id="summary-board" hidden>Leaderboard</button>
+    <button class="ghost" id="summary-notebook" hidden>Notebook</button>
     <button class="ghost" id="summary-games" hidden>Game history</button>
   </div>
 </dialog>
 
-<dialog class="sheet" id="personas" aria-labelledby="personas-title">
+<dialog class="sheet wide" id="notebook" aria-labelledby="notebook-title">
   <div class="sheet-head">
-    <h2 id="personas-title">Saved <em>personas</em></h2>
-    <button class="ghost" id="personas-board">Leaderboard</button>
+    <h2 id="notebook-title">The <em>notebook</em></h2>
+    <button class="ghost toggle" id="notebook-learn" role="switch" aria-checked="true" title="After a game of five hands or more, each Claude, Codex or OpenCode seat writes a few lessons">Learning <b>On</b></button>
+    <button class="ghost" id="notebook-board">Leaderboard</button>
     <button class="ghost" data-close>Close</button>
   </div>
-  <p class="hint">A persona is a saved player: a name, the way it plays, a skill rating that moves after every finished game, and a history log. Seat one from the player list on the start screen.</p>
-  <div class="error" id="plist-error" role="alert" hidden></div>
-  <div class="plist" id="plist"></div>
-  <div class="pform" role="group" aria-labelledby="pform-title">
-    <h3 id="pform-title">Create persona</h3>
-    <label class="field"><span class="caps">Name</span><input class="text-input" id="pf-name" type="text" maxlength="24" autocomplete="off" spellcheck="false" placeholder="1 to 24 characters"></label>
-    <label class="field"><span class="caps">Player</span><select id="pf-type"></select></label>
-    <div class="pf-controls wide" id="pf-controls"></div>
-    <div class="error wide" id="pf-error" role="alert" hidden></div>
-    <div class="sheet-foot wide">
-      <button class="primary" id="pf-create">Create persona</button>
-      <span class="need" id="pf-need" hidden></span>
-      <span class="saved" id="pf-saved" role="status"></span>
-    </div>
+  <p class="hint">After each game, code writes down what every AI player did. After a game of five hands or more, each Claude, Codex or OpenCode seat also writes up to three lessons about its own play. Every AI player reads the newest lessons before each move, as notes it may use or ignore. One notebook is shared by every model.</p>
+  <div class="error" id="notebook-error" role="alert" hidden></div>
+  <div class="caps" id="lessons-label">Lessons</div>
+  <div class="plist" id="lessons"></div>
+  <div class="caps" id="facts-label">Game facts</div>
+  <div class="scroll-x"><table class="sheet-table" id="facts-table"></table></div>
+  <div class="sheet-foot">
+    <button class="ghost warn" id="notebook-clear">Clear the notebook</button>
+    <span class="saved" id="notebook-saved" role="status"></span>
   </div>
 </dialog>
 
 <dialog class="sheet wide" id="leaderboard" aria-labelledby="board-title">
   <div class="sheet-head">
     <h2 id="board-title">Leader<em>board</em></h2>
-    <button class="ghost" id="board-personas">Personas</button>
+    <button class="ghost" id="board-notebook" hidden>Notebook</button>
     <button class="ghost" data-close>Close</button>
   </div>
   <p class="hint" id="board-hint"></p>
@@ -801,7 +787,7 @@
   </div>
   <p class="hint" id="history-about"></p>
   <div class="facts" id="history-facts"></div>
-  <div class="caps">History log</div>
+  <div class="caps">Rating game by game</div>
   <div class="scroll-x"><table class="sheet-table" id="history-table"></table></div>
   <p class="hint" id="history-hint" hidden></p>
 </dialog>
@@ -1242,8 +1228,8 @@
     // Shown only when the table runs with --lan. `sides[1]` null: a title with no "vs".
     { id: 'friends', sides: ['Friends\' table', null], first: ['human', 'friend'], rest: ['friend', 'bot', 'agent'], blurb: 'Friends join from their own phone or laptop with a private link and see only their own cards. Bots and AI players can sit in too.' }
   ];
-  // `picks` holds a player type for every seat. A seat held by a saved persona also has that persona's id in `personas`.
-  const setup = { open: false, auto: false, mode: null, count: DEFAULT_SEATS, picks: [], personas: [], models: [], reasoning: [], styles: [], notes: [], names: [], limit: null, drawn: null };
+  // `picks` holds a player type for every seat.
+  const setup = { open: false, auto: false, mode: null, count: DEFAULT_SEATS, picks: [], models: [], reasoning: [], styles: [], notes: [], names: [], limit: null, drawn: null };
   // The seed of the closed game that last sent this page back to the start screen.
   let homeShown = null;
 
@@ -1251,55 +1237,61 @@
   const modeOf = id => MODES.find(candidate => candidate.id === id) || null;
   const maxSeats = view => Math.min(6, Math.max(2, Number(view.settings.max_seats) || 6));
 
-  /* ---------- Personas: the saved players ---------- */
+  /* ---------- Leaderboard and notebook: what the table keeps between games ---------- */
 
-  const roster = { list: [], loaded: false, error: null, asked: false };
+  const ranking = { list: [], loaded: false, error: null, asked: false };
+  // The notebook as the server last sent it: `{ learning, lessons, facts }`. Lesson text is model output, shown as text only.
+  const notebook = { data: null, error: null, asked: false, busy: false };
 
-  function personaOf(id) {
-    if (id === null || id === undefined) return null;
-    const saved = roster.list.find(persona => persona.id === String(id));
-    if (saved || roster.loaded) return saved || null;
-    // Before the list has arrived, a persona already sitting at the table can still be named.
-    const seated = state?.players.find(player => player.persona && String(player.persona.id) === String(id));
-    return seated ? { id: String(id), name: seated.persona.name, rating: seated.persona.rating, type: seated.type, model: seated.model, reasoning: seated.reasoning, style: seated.style?.id ?? null, style_note: seated.style_note } : null;
-  }
-
-  // One line that says how a persona plays: "Claude · sonnet · reasoning off · Aggressive".
-  function personaSummary(view, persona) {
-    const type = typeOf(view, persona.type);
-    const parts = [type?.name ?? String(persona.type)];
-    if (persona.model) parts.push(String(persona.model));
-    if (type?.reasoning && persona.reasoning === false) parts.push('reasoning off');
-    const style = (view.styles || []).find(candidate => candidate.id === persona.style);
-    if (style && style.id !== 'balanced') parts.push(style.name);
-    if (persona.style_note) parts.push(`"${persona.style_note}"`);
-    return parts.join(' · ');
-  }
-
-  // A persona may take a seat only where its kind of player may sit in the chosen mode.
-  function personaFits(view, mode, seat, persona) {
-    const type = typeOf(view, persona.type);
-    if (!type || (type.id === 'human' && seat !== 0)) return false;
-    return (seat === 0 ? mode.first : mode.rest).includes(type.category);
-  }
-
-  async function loadPersonas() {
-    if (!state?.personas_enabled) return;
-    roster.asked = true;
+  async function loadBoard() {
+    if (!state?.leaderboard_enabled) return;
+    ranking.asked = true;
     try {
-      const { ok, payload } = await request('GET', '/personas');
-      if (!ok || !Array.isArray(payload.personas)) throw new Error(payload.error || 'The server did not return the saved personas.');
-      roster.list = payload.personas
-        .filter(persona => persona && persona.id !== undefined && persona.id !== null)
-        .map((persona, index) => ({ ...persona, id: String(persona.id), name: String(persona.name ?? ''), rank: finite(persona.rank) ? Number(persona.rank) : index + 1 }))
+      const { ok, payload } = await request('GET', '/leaderboard');
+      if (!ok || !Array.isArray(payload.players)) throw new Error(payload.error || 'The server did not return the leaderboard.');
+      ranking.list = payload.players
+        .filter(entry => entry && typeof entry.key === 'string')
+        .map((entry, index) => ({ ...entry, name: String(entry.name ?? entry.key), rank: finite(entry.rank) ? Number(entry.rank) : index + 1 }))
         .sort((a, b) => a.rank - b.rank);
-      roster.loaded = true;
-      roster.error = null;
+      ranking.loaded = true;
+      ranking.error = null;
     } catch (error) {
-      roster.error = error instanceof TypeError ? LOST_CONTACT : String(error.message || error);
+      ranking.error = error instanceof TypeError ? LOST_CONTACT : String(error.message || error);
     }
-    drawPersonaList();
     drawBoard();
+  }
+
+  async function loadNotebook() {
+    if (!state?.learning_enabled) return;
+    notebook.asked = true;
+    try {
+      const { ok, payload } = await request('GET', '/notebook');
+      if (!ok || !Array.isArray(payload.lessons)) throw new Error(payload.error || 'The server did not return the notebook.');
+      notebook.data = payload;
+      notebook.error = null;
+    } catch (error) {
+      notebook.error = error instanceof TypeError ? LOST_CONTACT : String(error.message || error);
+    }
+    drawNotebook();
+    if (state) drawSetup(state);
+  }
+
+  // One change to the notebook: the learning switch, clearing it, or removing one lesson.
+  async function changeNotebook(change, done) {
+    if (notebook.busy) return;
+    notebook.busy = true;
+    let failure = '';
+    try {
+      const { ok, payload } = await request('POST', '/notebook', change);
+      if (!ok || !Array.isArray(payload.lessons)) failure = payload.error || 'The notebook could not be changed.';
+      else notebook.data = payload;
+    } catch (error) {
+      failure = error instanceof TypeError ? LOST_CONTACT : String(error.message || error);
+    }
+    notebook.busy = false;
+    notebook.error = failure || null;
+    $('notebook-saved').textContent = failure ? '' : done;
+    drawNotebook();
     if (state) drawSetup(state);
   }
 
@@ -1338,8 +1330,7 @@
     setup.count = count;
     if (!mode) return;
     setup.picks = Array.from({ length: count }, (_, seat) => setup.picks[seat] ?? defaultPick(view, mode, seat));
-    setup.personas = Array.from({ length: count }, (_, seat) => setup.personas[seat] ?? null);
-    setup.models =Array.from({ length: count }, (_, seat) => setup.models[seat] ?? '');
+    setup.models = Array.from({ length: count }, (_, seat) => setup.models[seat] ?? '');
     setup.reasoning = Array.from({ length: count }, (_, seat) => setup.reasoning[seat] ?? true);
     setup.styles = Array.from({ length: count }, (_, seat) => setup.styles[seat] ?? 'balanced');
     setup.notes = Array.from({ length: count }, (_, seat) => setup.notes[seat] ?? '');
@@ -1348,7 +1339,6 @@
   function chooseMode(view, mode) {
     setup.mode = mode.id;
     setup.picks = [];
-    setup.personas = [];
     setup.models = [];
     setup.reasoning = [];
     setup.styles = [];
@@ -1371,7 +1361,7 @@
     if (mode.id === 'friends' && !types.some(type => type.id === 'friend')) return 'Give at least one seat to a friend.';
     const badName = setup.picks.findIndex((pick, seat) => pick === 'friend' && (setup.names[seat] || '').trim() && !/^[\p{L}\p{N}][\p{L}\p{N} ._'-]{0,23}$/u.test((setup.names[seat] || '').trim()));
     if (badName !== -1) return `Seat ${badName}: a friend's name is 1 to 24 letters, digits, spaces, dots, dashes or apostrophes.`;
-    const bad = setup.models.findIndex((model, seat) => model && !setup.personas[seat] && types[seat].models && !MODEL_PATTERN.test(model));
+    const bad = setup.models.findIndex((model, seat) => model && types[seat].models && !MODEL_PATTERN.test(model));
     if (bad !== -1) return `Seat ${bad}: a model name is 1 to 64 letters, digits, dots, colons, dashes or underscores.`;
     return null;
   }
@@ -1552,6 +1542,16 @@
       const label = ms === 0 ? name : `${name ? `${name} ` : ''}${Math.round(ms / 1000)} s`;
       return segment(label, ms === setup.limit, () => { setup.limit = ms; drawSetup(state); });
     }));
+    // The learning switch shows once a seat can learn. It is the notebook's own setting, so it is saved at once.
+    const learners = setup.picks.some(id => typeOf(view, id)?.lessons);
+    $('learn-dial').hidden = !view.learning_enabled || !learners || !notebook.data;
+    if (!$('learn-dial').hidden) {
+      const on = notebook.data.learning !== false;
+      fill($('learn'), [true, false].map(value => segment(value ? 'On' : 'Off', on === value, () => {
+        if (on !== value) changeNotebook({ learning: value }, value ? 'Learning is on.' : 'Learning is off.');
+      })));
+      $('learn').title = 'After a game of five hands or more, each Claude, Codex or OpenCode seat writes a few lessons for the shared notebook, and reads the newest ones before each move. One extra model call per seat.';
+    }
   }
 
   // Claude, Codex and OpenCode think before they answer. This switch asks the tool to answer straight away.
@@ -1567,7 +1567,7 @@
     return button;
   }
 
-  // A playing style: a preset, plus a free-text note for players that are a general model. `who` ends the labels: "seat 2", "the new persona".
+  // A playing style: a preset, plus a free-text note for players that are a general model. `who` ends the labels: "seat 2".
   function styleLine({ view, who, type, style, note: text, onStyle, onNote }) {
     const line = el('div', 'style-line');
     const picker = el('select');
@@ -1606,11 +1606,6 @@
       const where = el('div', 'where caps');
       where.append(el('b', '', `Seat ${seat}`), document.createTextNode(seat === 0 ? 'bottom, nearest you' : ''));
       const options = optionsFor(view, mode, seat);
-      // Saved personas that may sit here, without the ones already seated in another row.
-      const held = personaOf(setup.personas[seat]);
-      const elsewhere = new Set(setup.personas.filter((id, other) => id && other !== seat));
-      const saved = view.personas_enabled ? roster.list.filter(persona => personaFits(view, mode, seat, persona) && !elsewhere.has(persona.id)) : [];
-      if (held && !saved.includes(held)) saved.unshift(held);
       const plain = option => {
         const node = el('option', '', option.available ? option.name : `${option.name} (unavailable)`);
         node.value = option.id;
@@ -1618,33 +1613,15 @@
         return node;
       };
       let picker;
-      if (options.length === 1 && !saved.length) {
+      if (options.length === 1) {
         picker = el('div', 'fixed', options[0].name);
       } else {
         picker = el('select');
         picker.setAttribute('aria-label', `Player for seat ${seat}`);
-        if (saved.length) {
-          const mine = el('optgroup');
-          mine.label = 'Personas';
-          for (const persona of saved) {
-            const usable = Boolean(typeOf(view, persona.type)?.available);
-            const node = el('option', '', `${persona.name} · ${skill(persona.rating)}${usable ? '' : ' (unavailable)'}`);
-            node.value = `persona:${persona.id}`;
-            node.disabled = !usable && persona !== held;
-            mine.append(node);
-          }
-          const others = el('optgroup');
-          others.label = 'Players';
-          others.append(...options.map(plain));
-          picker.append(mine, others);
-        } else {
-          picker.append(...options.map(plain));
-        }
-        picker.value = held ? `persona:${held.id}` : setup.picks[seat];
+        picker.append(...options.map(plain));
+        picker.value = setup.picks[seat];
         picker.addEventListener('change', () => {
-          const persona = picker.value.startsWith('persona:') ? personaOf(picker.value.slice('persona:'.length)) : null;
-          setup.personas[seat] = persona ? persona.id : null;
-          setup.picks[seat] = persona ? persona.type : picker.value;
+          setup.picks[seat] = picker.value;
           setup.models[seat] = '';
           setup.reasoning[seat] = true;
           setup.styles[seat] = 'balanced';
@@ -1671,36 +1648,13 @@
         rows.push(row);
         continue;
       }
-      if (held) {
-        // A persona brings its own model, reasoning and style: the row shows them instead of asking.
-        const line = el('div', 'persona-line', personaSummary(view, held));
-        line.title = line.textContent;
-        row.append(where, picker, line);
-      } else {
-        const model = type?.models ? modelBox({ key: seat, label: `Model for seat ${seat}`, value: setup.models[seat], type, onChange: value => { setup.models[seat] = value; drawSetupNotes(state, modeOf(setup.mode)); } }) : el('div');
-        const reasoning = type?.reasoning ? reasoningSwitch({ label: `Reasoning for seat ${seat}`, on: setup.reasoning[seat] !== false, onToggle: on => { setup.reasoning[seat] = on; drawSetup(state); } }) : el('div');
-        row.append(where, picker, model, reasoning);
-        if (type?.styles) row.append(styleLine({ view, who: `seat ${seat}`, type, style: setup.styles[seat], note: setup.notes[seat], onStyle: value => { setup.styles[seat] = value; drawSetup(state); }, onNote: value => { setup.notes[seat] = value; } }));
-      }
+      const model = type?.models ? modelBox({ key: seat, label: `Model for seat ${seat}`, value: setup.models[seat], type, onChange: value => { setup.models[seat] = value; drawSetupNotes(state, modeOf(setup.mode)); } }) : el('div');
+      const reasoning = type?.reasoning ? reasoningSwitch({ label: `Reasoning for seat ${seat}`, on: setup.reasoning[seat] !== false, onToggle: on => { setup.reasoning[seat] = on; drawSetup(state); } }) : el('div');
+      row.append(where, picker, model, reasoning);
+      if (type?.styles) row.append(styleLine({ view, who: `seat ${seat}`, type, style: setup.styles[seat], note: setup.notes[seat], onStyle: value => { setup.styles[seat] = value; drawSetup(state); }, onNote: value => { setup.notes[seat] = value; } }));
       rows.push(row);
     }
     fill($('rows'), rows);
-  }
-
-  // A persona that was deleted, or that may not sit where it was put, gives its seat back to a plain player.
-  function dropLostPersonas(view, mode) {
-    if (!roster.loaded) return;
-    setup.personas.forEach((id, seat) => {
-      if (!id) return;
-      const persona = personaOf(id);
-      const twice = setup.personas.indexOf(id) !== seat;
-      if (persona && !twice && personaFits(view, mode, seat, persona)) {
-        setup.picks[seat] = persona.type;
-        return;
-      }
-      setup.personas[seat] = null;
-      setup.picks[seat] = defaultPick(view, mode, seat);
-    });
   }
 
   function drawSetup(view) {
@@ -1715,7 +1669,7 @@
     // host's; "Back to the table" then shows the closed game and its summary.
     if (closed && homeShown !== view.seed) {
       homeShown = view.seed;
-      Object.assign(setup, { mode: null, picks: [], personas: [], models: [], reasoning: [], styles: [], notes: [], names: [], drawn: null });
+      Object.assign(setup, { mode: null, picks: [], models: [], reasoning: [], styles: [], notes: [], names: [], drawn: null });
       $('setup-error').hidden = true;
       setup.open = true;
       setup.auto = true;
@@ -1728,8 +1682,8 @@
     }
     $('setup').hidden = !setup.open;
     if (!setup.open) return;
-    $('setup-personas').hidden = !view.personas_enabled;
-    $('setup-board').hidden = !view.personas_enabled;
+    $('setup-notebook').hidden = !view.learning_enabled;
+    $('setup-board').hidden = !view.leaderboard_enabled;
     $('setup-games').hidden = !view.history_enabled;
     if (setup.limit === null) setup.limit = Number.isFinite(view.settings.turn_limit_ms) ? view.settings.turn_limit_ms : DEFAULT_TURN_LIMIT;
     const mode = modeOf(setup.mode);
@@ -1761,9 +1715,7 @@
       return;
     }
     // Rows are rebuilt only when a choice changes; a state ping must not wipe a half-typed model name.
-    dropLostPersonas(view, mode);
-    const saved = view.personas_enabled ? roster.list.map(persona => [persona.id, persona.name, persona.rating, persona.type, persona.model, persona.reasoning, persona.style, persona.style_note]) : null;
-    const drawn = JSON.stringify([setup.mode, setup.count, setup.picks, setup.personas, setup.reasoning, setup.styles, setup.limit, view.player_types, view.settings.max_seats, saved]);
+    const drawn = JSON.stringify([setup.mode, setup.count, setup.picks, setup.reasoning, setup.styles, setup.limit, view.player_types, view.settings.max_seats, notebook.data?.learning ?? null, notebook.busy]);
     if (drawn !== setup.drawn) {
       setup.drawn = drawn;
       drawDials(view);
@@ -2025,9 +1977,9 @@
     ui.style.textContent = styled ? player.style.name : (player.style_note ? 'own style' : '');
     ui.style.title = player.style_note ? `Style note: ${player.style_note}` : '';
     ui.name.title = player.name;
-    // A saved persona shows its skill rating beside its name.
-    ui.rating.textContent = player.persona && finite(player.persona.rating) ? skill(player.persona.rating) : '';
-    ui.rating.title = player.persona ? `Skill rating of ${player.name}` : '';
+    // A rated seat shows the rating of its player key (its type and model) beside its name.
+    ui.rating.textContent = finite(player.rating) ? skill(player.rating) : '';
+    ui.rating.title = finite(player.rating) ? 'Leaderboard rating of this player and model' : '';
     const stack = (matchOver ? view.match?.final_stacks?.[seat] : undefined) ?? hand?.stacks?.[seat] ?? view.settings.stack;
     fill(ui.stack, [document.createTextNode(chips(stack)), el('small', '', 'chips')]);
     const think = player.think;
@@ -2472,8 +2424,7 @@
       openSetup();
       return;
     }
-    // A saved persona sits down again as itself, so the new game counts toward its rating and history.
-    const body = { players: state.players.map(player => (player.persona ? { persona: String(player.persona.id) } : { type: player.type, ...(player.model ? { model: player.model } : {}), ...(player.reasoning === false ? { reasoning: false } : {}), ...(player.style && player.style.id !== 'balanced' ? { style: player.style.id } : {}), ...(player.style_note ? { style_note: player.style_note } : {}) })) };
+    const body = { players: state.players.map(player => ({ type: player.type, ...(player.model ? { model: player.model } : {}), ...(player.reasoning === false ? { reasoning: false } : {}), ...(player.style && player.style.id !== 'balanced' ? { style: player.style.id } : {}), ...(player.style_note ? { style_note: player.style_note } : {}) })) };
     if (Number.isFinite(state.settings.turn_limit_ms)) body.turn_limit_ms = state.settings.turn_limit_ms;
     send('/new', body);
   }
@@ -2654,22 +2605,34 @@
     });
     fill($('summary-table'), [head, body]);
 
-    const ratings = Array.isArray(match.ratings) ? match.ratings.filter(entry => entry && finite(entry.before) && finite(entry.after)) : [];
+    // One tile per player key: seats that share a key (two bots of one style) share one rating and one change.
+    const ratings = Array.isArray(match.ratings) ? match.ratings.filter((entry, index, all) => entry && finite(entry.before) && finite(entry.after) && all.findIndex(other => other?.key === entry.key) === index) : [];
     $('summary-ratings-wrap').hidden = !ratings.length;
     fill($('summary-ratings'), ratings.map(entry => {
       const change = Number(entry.after) - Number(entry.before);
       const tile = el('div', 'rate');
-      const who = el('span', 'who', String(entry.name ?? view.players[entry.seat]?.name ?? 'Persona'));
+      const who = el('span', 'who', String(entry.name ?? view.players[entry.seat]?.name ?? 'Player'));
       who.title = who.textContent;
       tile.append(who, el('span', `delta${tone(Math.round(change))}`, signedSkill(change)), el('span', 'move', `${skill(entry.before)} → ${skill(entry.after)}`));
       return tile;
     }));
     const notes = [];
-    if (!ratings.length && view.players.some(player => player.persona)) notes.push('This game did not change a skill rating.');
+    if (!ratings.length && view.leaderboard_enabled) notes.push('This game did not change a rating.');
     if (match.log_path) notes.push(`Game log: ${match.log_path}`);
     $('summary-note').hidden = !notes.length;
     $('summary-note').textContent = notes.join(' ');
-    $('summary-board').hidden = !view.personas_enabled;
+    // Each AI seat's review of its own play runs after the summary is up; the line follows it.
+    const reviews = Array.isArray(match.reviews) ? match.reviews.filter(entry => entry && Number.isInteger(entry.seat)) : [];
+    $('summary-lessons').hidden = !reviews.length;
+    $('summary-lessons').textContent = reviews.map(entry => {
+      const name = String(view.players[entry.seat]?.name ?? `Seat ${entry.seat}`);
+      if (entry.status === 'writing') return `${name}: writing lessons…`;
+      if (entry.status === 'failed') return `${name}: could not write lessons this time.`;
+      const added = Number(entry.added) || 0;
+      return added ? `${name}: ${added} ${added === 1 ? 'lesson' : 'lessons'} added.` : `${name}: no lessons this time.`;
+    }).join(' ');
+    $('summary-board').hidden = !view.leaderboard_enabled;
+    $('summary-notebook').hidden = !view.learning_enabled;
     $('summary-games').hidden = !view.history_enabled;
   }
 
@@ -2685,12 +2648,18 @@
   function followMatch(view) {
     const running = ['starting', 'dealing', 'thinking', 'your_turn', 'hand_over'].includes(view.status);
     $('close-game').hidden = !running;
-    $('open-personas').hidden = !view.personas_enabled;
-    $('open-board').hidden = !view.personas_enabled;
+    $('open-notebook').hidden = !view.learning_enabled;
+    $('open-board').hidden = !view.leaderboard_enabled;
     $('open-games').hidden = !view.history_enabled;
     $('open-invites').hidden = GUEST || !view.players.some(player => player.type === 'friend');
     if (!running && confirmKind === 'close') closeDialog('confirm');
-    if (view.personas_enabled && !roster.asked) loadPersonas();
+    if (view.learning_enabled && !notebook.asked) loadNotebook();
+    // The notebook gains lessons as each review finishes; an open notebook reads it again.
+    const reviewing = JSON.stringify(view.match?.reviews ?? null);
+    if (reviewing !== followMatch.reviewing) {
+      followMatch.reviewing = reviewing;
+      if (view.learning_enabled && notebook.asked) loadNotebook();
+    }
     if (view.status !== 'match_over' || !view.match) {
       // A new game began, here or from somewhere else: the old summary steps aside.
       closeDialog('summary');
@@ -2701,8 +2670,8 @@
     } else if (summaryShown !== view.seed && !setup.open && !dialogOpen()) {
       summaryShown = view.seed;
       openSummary(view);
-      // Ratings moved with this game, so the saved list is read again.
-      loadPersonas();
+      // Ratings moved with this game, so the leaderboard is read again.
+      if (ranking.asked) loadBoard();
     }
   }
 
@@ -2721,292 +2690,207 @@
     }
   }
 
-  /* ---------- Personas dialog ---------- */
+  /* ---------- Notebook dialog ---------- */
 
-  const draft = { type: null, model: '', reasoning: true, style: 'balanced', note: '', drawn: null, busy: false };
-
-  function personaProblem() {
-    const name = $('pf-name').value.trim();
-    const type = state ? typeOf(state, draft.type) : null;
-    if (!type || !type.available) return 'Pick a player that can play.';
-    if (!name) return 'Give the persona a name.';
-    if ([...name].length > 24) return 'A name is 24 characters at most.';
-    if (roster.list.some(persona => persona.name === name)) return 'That name is already taken.';
-    if (type.models && draft.model && !MODEL_PATTERN.test(draft.model)) return 'A model name is 1 to 64 letters, digits, dots, colons, dashes or underscores.';
-    return null;
+  // How a player key reads: "Claude · opus", "Bot · Rock", "You".
+  function keyName(key) {
+    const text = String(key ?? '–');
+    if (text === 'human') return 'You';
+    const at = text.indexOf(':');
+    if (at < 0 || !state) return text;
+    const type = typeOf(state, text.slice(0, at));
+    const rest = text.slice(at + 1);
+    const style = (state.styles || []).find(candidate => candidate.id === rest);
+    return `${type?.name ?? text.slice(0, at)} · ${type && !type.models && style ? style.name : rest}`;
   }
 
-  function checkPersonaDraft() {
-    const problem = personaProblem();
-    $('pf-create').disabled = Boolean(problem) || draft.busy;
-    $('pf-need').hidden = !problem;
-    $('pf-need').textContent = problem || '';
-    for (const input of $('pf-controls').querySelectorAll('.combo input')) input.classList.toggle('bad', Boolean(input.value.trim()) && !MODEL_PATTERN.test(input.value.trim()));
-  }
-
-  // The same controls a seat row has, for the player type chosen in the form.
-  function drawPersonaForm() {
-    const view = state;
-    if (!view) return;
-    const types = view.player_types;
-    if (!typeOf(view, draft.type)?.available) draft.type = (types.find(type => type.available && type.category === 'agent' && type.id !== 'agent') || types.find(type => type.available) || types[0])?.id ?? null;
-    const key = JSON.stringify([draft.type, draft.reasoning, draft.style, types, view.styles]);
-    if (key !== draft.drawn) {
-      draft.drawn = key;
-      fill($('pf-type'), types.map(type => {
-        const node = el('option', '', type.available ? type.name : `${type.name} (unavailable)`);
-        node.value = type.id;
-        node.disabled = !type.available;
-        return node;
-      }));
-      $('pf-type').value = draft.type;
-      const type = typeOf(view, draft.type);
-      const nodes = [];
-      const field = (label, control) => {
-        const box = el('div', 'field');
-        box.append(el('span', 'caps', label), control);
-        return box;
-      };
-      if (type?.models) nodes.push(field('Model', modelBox({ key: 'persona', label: 'Model for the new persona', value: draft.model, type, onChange: value => { draft.model = value; checkPersonaDraft(); } })));
-      if (type?.reasoning) nodes.push(field('Thinking before a move', reasoningSwitch({ label: 'Reasoning for the new persona', on: draft.reasoning, onToggle: on => { draft.reasoning = on; drawPersonaForm(); } })));
-      if (type?.styles) nodes.push(styleLine({ view, who: 'the new persona', type, style: draft.style, note: draft.note, onStyle: value => { draft.style = value; drawPersonaForm(); }, onNote: value => { draft.note = value; } }));
-      if (type?.id === 'human') nodes.push(el('p', 'hint', 'This persona is you at the table. It can only take seat 0, and its rating follows your own results.'));
-      if (type?.id === 'agent') nodes.push(el('p', 'hint', 'An open seat: your own agent plays this persona through GET /seats/N/view and POST /seats/N/action.'));
-      fill($('pf-controls'), nodes);
-    }
-    checkPersonaDraft();
-  }
-
-  async function createPersona() {
-    if (draft.busy || personaProblem() || !state) return;
-    const type = typeOf(state, draft.type);
-    const name = $('pf-name').value.trim();
-    const body = { name, type: type.id };
-    if (type.models && draft.model) body.model = draft.model;
-    if (type.reasoning && draft.reasoning === false) body.reasoning = false;
-    if (type.styles && draft.style && draft.style !== 'balanced') body.style = draft.style;
-    if (type.style_notes && draft.note.trim()) body.style_note = draft.note.trim();
-    draft.busy = true;
-    $('pf-saved').textContent = '';
-    $('pf-error').hidden = true;
-    checkPersonaDraft();
-    let failure = null;
-    try {
-      const { ok, payload } = await request('POST', '/personas', body);
-      if (!ok) failure = payload.error || 'The persona could not be saved.';
-    } catch (error) {
-      console.error(error);
-      failure = LOST_CONTACT;
-    }
-    draft.busy = false;
-    if (failure) {
-      $('pf-error').textContent = failure;
-      $('pf-error').hidden = false;
-      checkPersonaDraft();
+  function drawNotebook() {
+    if (!state) return;
+    const data = notebook.data;
+    $('notebook-error').hidden = !notebook.error;
+    $('notebook-error').textContent = notebook.error || '';
+    const on = data ? data.learning !== false : true;
+    const learn = $('notebook-learn');
+    learn.setAttribute('aria-checked', String(on));
+    learn.querySelector('b').textContent = on ? 'On' : 'Off';
+    learn.disabled = !data || notebook.busy;
+    $('notebook-clear').disabled = !data || notebook.busy || (!data.lessons.length && !data.facts.length);
+    const key = JSON.stringify([data, notebook.busy, state.player_types.map(type => type.id), notebook.error]);
+    if ($('lessons').dataset.drawn === key) return;
+    $('lessons').dataset.drawn = key;
+    if (!data) {
+      fill($('lessons'), notebook.error ? [] : [el('p', 'hint', 'Reading the notebook.')]);
+      fill($('facts-table'), []);
       return;
     }
-    $('pf-name').value = '';
-    $('pf-saved').textContent = `Saved ${name}.`;
-    await loadPersonas();
-    checkPersonaDraft();
-    $('pf-name').focus();
-  }
-
-  async function removePersona(persona) {
-    let failure = null;
-    try {
-      // The body is empty JSON so the request is accepted whether or not the server reads one.
-      const { ok, payload } = await request('DELETE', `/personas/${encodeURIComponent(persona.id)}`, {});
-      if (!ok) failure = payload.error || 'The persona could not be deleted.';
-    } catch (error) {
-      console.error(error);
-      failure = LOST_CONTACT;
-    }
-    $('plist-error').hidden = !failure;
-    $('plist-error').textContent = failure || '';
-    $('pf-saved').textContent = failure ? '' : `Deleted ${persona.name}.`;
-    await loadPersonas();
-    checkPersonaDraft();
-  }
-
-  function drawPersonaList() {
-    const view = state;
-    if (!view) return;
-    const box = $('plist');
-    const key = JSON.stringify([roster.loaded, roster.error, roster.list, view.player_types, view.styles]);
-    if (box.dataset.drawn === key) return;
-    box.dataset.drawn = key;
-    if (!roster.loaded) {
-      fill(box, [el('p', 'hint', roster.error || 'Reading the saved personas.')]);
-      return;
-    }
-    if (!roster.list.length) {
-      fill(box, [el('p', 'hint', 'No personas yet. Create the first one below.')]);
-      return;
-    }
-    fill(box, roster.list.map(persona => {
+    // Lesson text is model output: it goes into the page as text, never as markup.
+    fill($('lessons'), data.lessons.length ? data.lessons.map(lesson => {
       const item = el('div', 'pitem');
       const who = el('div', 'pwho');
-      const name = el('div', 'pname', persona.name);
-      name.title = persona.name;
-      const games = Number(persona.matches) || 0;
-      const meta = el('div', 'pmeta', `${personaSummary(view, persona)} · ${games ? `${games} ${games === 1 ? 'match' : 'matches'}` : 'not played yet'}`);
-      meta.title = meta.textContent;
-      who.append(name, meta);
-      const rating = el('span', 'skill');
-      rating.append(el('span', 'caps', 'Skill'), el('b', '', skill(persona.rating)));
-      const log = el('button', 'ghost', 'History');
-      log.type = 'button';
-      log.setAttribute('aria-label', `History of ${persona.name}`);
-      log.addEventListener('click', () => openHistory(persona.id));
-      const remove = el('button', 'ghost warn', 'Delete');
+      who.append(el('div', 'ptext', String(lesson.text ?? '')), el('div', 'pmeta', `${keyName(lesson.by)} · ${when(lesson.at)}`));
+      const remove = el('button', 'ghost', 'Delete');
       remove.type = 'button';
-      remove.setAttribute('aria-label', `Delete ${persona.name}`);
-      remove.addEventListener('click', () => askConfirm({
-        kind: 'delete',
-        title: `Delete ${persona.name}?`,
-        text: 'Its skill rating and its history log are removed for good. Games already played keep their own logs.',
-        yes: 'Delete persona',
-        no: 'Keep it',
-        onYes: () => removePersona(persona)
-      }));
-      item.append(who, rating, log, remove);
+      remove.disabled = notebook.busy;
+      remove.setAttribute('aria-label', `Delete the lesson: ${String(lesson.text ?? '')}`);
+      remove.addEventListener('click', () => changeNotebook({ remove_lesson: String(lesson.id) }, 'Lesson deleted.'));
+      item.append(who, remove);
       return item;
-    }));
+    }) : [el('p', 'hint', on ? 'No lessons yet. They are written after a game of five hands or more with a Claude, Codex or OpenCode seat.' : 'No lessons yet. Learning is off, so none are written.')]);
+    $('facts-label').textContent = data.facts.length ? 'Game facts' : 'Game facts: none yet';
+    if (!data.facts.length) {
+      fill($('facts-table'), []);
+      return;
+    }
+    const head = el('thead');
+    const top = el('tr');
+    top.append(
+      headCell('Date', { left: true }), headCell('Player', { left: true }), headCell('Hands'), headCell('Chips'), headCell('BB / 100', { title: 'Big blinds won per 100 hands' }), headCell('Rating'),
+      headCell('Showdowns', { title: 'Showdowns won and lost' }), headCell('Folds'), headCell('Own moves', { title: 'Moves the model chose itself, of all its moves' }), headCell('Biggest loss', { left: true })
+    );
+    head.append(top);
+    const body = el('tbody');
+    for (const entry of data.facts) {
+      const facts = entry.facts && typeof entry.facts === 'object' ? entry.facts : {};
+      const moves = facts.moves && typeof facts.moves === 'object' ? facts.moves : {};
+      const all = ['model', 'fallback', 'timeout', 'forced'].reduce((total, name) => total + (Number(moves[name]) || 0), 0);
+      const rated = finite(entry.rating_before) && finite(entry.rating_after);
+      const rating = cell(rated ? `${skill(entry.rating_before)} → ${skill(entry.rating_after)}` : '–', rated ? '' : 'quiet');
+      if (rated) rating.append(el('small', tone(Math.round(entry.rating_after - entry.rating_before)).trim(), signedSkill(entry.rating_after - entry.rating_before)));
+      const loss = facts.biggest_loss && typeof facts.biggest_loss === 'object' ? facts.biggest_loss : null;
+      const row = el('tr');
+      body.append(row);
+      row.append(
+        cell(when(entry.at), 'left'), cell(keyName(entry.player), 'left'), cell(dash(entry.hands, String)),
+        cell(finite(facts.net_chips) ? signed(Number(facts.net_chips)) : '–', tone(facts.net_chips).trim()),
+        cell(perHundred(entry.bb_per_100), finite(entry.bb_per_100) ? tone(entry.bb_per_100).trim() : 'quiet'), rating,
+        cell(`${dash(facts.showdowns_won, String)} won · ${dash(facts.showdowns_lost, String)} lost`), cell(dash(facts.folds, String)),
+        cell(all ? `${Number(moves.model) || 0} of ${all}` : '–', all ? '' : 'quiet'),
+        cell(loss ? `${chips(loss.chips)} on the ${String(loss.round ?? '–')}, after ${String(loss.last_action ?? '–').replace(/_/g, ' ')}` : '–', loss ? 'left' : 'left quiet')
+      );
+    }
+    fill($('facts-table'), [head, body]);
   }
 
-  function openPersonas() {
-    if (!state) return;
-    $('pf-saved').textContent = '';
-    $('pf-error').hidden = true;
-    $('plist-error').hidden = true;
-    drawPersonaForm();
-    drawPersonaList();
-    openDialog('personas');
-    loadPersonas();
+  function openNotebook() {
+    if (!state?.learning_enabled) return;
+    $('notebook-saved').textContent = '';
+    drawNotebook();
+    openDialog('notebook');
+    loadNotebook();
   }
 
-  /* ---------- Leaderboard and history log ---------- */
-
-  const playerLabel = (view, persona) => `${typeOf(view, persona.type)?.name ?? String(persona.type ?? '–')}${persona.model ? ` · ${persona.model}` : ''}`;
+  /* ---------- Leaderboard and rating trend ---------- */
 
   function drawBoard() {
     const view = state;
     if (!view) return;
     const table = $('board-table');
-    const key = JSON.stringify([roster.loaded, roster.error, roster.list, view.player_types]);
+    $('board-notebook').hidden = !view.learning_enabled;
+    const key = JSON.stringify([ranking.loaded, ranking.error, ranking.list]);
     if (table.dataset.drawn === key) return;
     table.dataset.drawn = key;
-    if (!roster.loaded) $('board-hint').textContent = roster.error || 'Reading the ranking.';
-    else if (!roster.list.length) $('board-hint').textContent = 'No personas yet. Create one, seat it in a game, and it is ranked here.';
-    else $('board-hint').textContent = 'Ranked by skill rating, which moves after every finished game. Pick a persona to read its history log.';
-    if (!roster.list.length) {
+    if (!ranking.loaded) $('board-hint').textContent = ranking.error || 'Reading the ranking.';
+    else if (!ranking.list.length) $('board-hint').textContent = 'No finished game yet. Every player and model that plays a game is ranked here.';
+    else $('board-hint').textContent = 'Ranked by rating, which moves after every finished game. Each player type and model is rated as one player, whatever its seat or style; a bot is rated by its style. Pick one to see its rating game by game.';
+    if (!ranking.list.length) {
       fill(table, []);
       return;
     }
     const head = el('thead');
     const top = el('tr');
     top.append(
-      headCell('Rank', { left: true }), headCell('Persona', { left: true }), headCell('Player', { left: true }), headCell('Skill'), headCell('Matches'), headCell('Wins', { title: 'Matches finished alone in first place' }),
+      headCell('Rank', { left: true }), headCell('Player', { left: true }), headCell('Rating'), headCell('Matches'), headCell('Wins', { title: 'Matches finished alone in first place' }),
       headCell('BB / 100', { title: 'Big blinds won per 100 hands' }), headCell('Avg reasoning', { title: 'Average reasoning time per decision' }), headCell('Last played')
     );
     head.append(top);
     const body = el('tbody');
-    for (const persona of roster.list) {
-      const row = el('tr', `pick${persona.rank >= 1 && persona.rank <= 3 ? ` rank${persona.rank}` : ''}`);
+    for (const entry of ranking.list) {
+      const row = el('tr', `pick${entry.rank >= 1 && entry.rank <= 3 ? ` rank${entry.rank}` : ''}`);
       const place = cell('', 'left');
-      place.append(el('span', 'medal', String(persona.rank)));
+      place.append(el('span', 'medal', String(entry.rank)));
       const name = cell('', 'left name');
-      const link = el('button', 'linkish', persona.name);
+      const link = el('button', 'linkish', entry.name);
       link.type = 'button';
-      link.title = persona.name;
-      link.setAttribute('aria-label', `${persona.name}, rank ${persona.rank}. Open the history log.`);
+      link.title = entry.name;
+      link.setAttribute('aria-label', `${entry.name}, rank ${entry.rank}. Show its rating game by game.`);
       name.append(link);
-      const matches = Number(persona.matches) || 0;
-      const wins = cell(dash(persona.match_wins, String));
-      if (matches > 0 && finite(persona.match_wins)) wins.append(el('small', '', `${Math.round((100 * Number(persona.match_wins)) / matches)}%`));
+      const matches = Number(entry.matches) || 0;
+      const wins = cell(dash(entry.match_wins, String));
+      if (matches > 0 && finite(entry.match_wins)) wins.append(el('small', '', `${Math.round((100 * Number(entry.match_wins)) / matches)}%`));
       row.append(
-        place, name, cell(playerLabel(view, persona), 'left quiet'), cell(skill(persona.rating), 'skill-cell'), cell(String(matches), matches ? '' : 'quiet'), wins,
-        cell(perHundred(persona.bb_per_100), finite(persona.bb_per_100) ? tone(persona.bb_per_100).trim() : 'quiet'),
-        cell(finite(persona.avg_think_ms) ? took(persona.avg_think_ms) : '–', finite(persona.avg_think_ms) ? '' : 'quiet'),
-        cell(when(persona.last_played_at), persona.last_played_at ? '' : 'quiet')
+        place, name, cell(skill(entry.rating), 'skill-cell'), cell(String(matches), matches ? '' : 'quiet'), wins,
+        cell(perHundred(entry.bb_per_100), finite(entry.bb_per_100) ? tone(entry.bb_per_100).trim() : 'quiet'),
+        cell(finite(entry.avg_think_ms) ? took(entry.avg_think_ms) : '–', finite(entry.avg_think_ms) ? '' : 'quiet'),
+        cell(when(entry.last_played_at), entry.last_played_at ? '' : 'quiet')
       );
-      // The name is a button, so the keyboard opens the log too; its click also lands here.
-      row.addEventListener('click', () => openHistory(persona.id));
+      // The name is a button, so the keyboard opens the trend too; its click also lands here.
+      row.addEventListener('click', () => openTrend(entry.key));
       body.append(row);
     }
     fill(table, [head, body]);
   }
 
   function openBoard() {
-    if (!state) return;
+    if (!state?.leaderboard_enabled) return;
     drawBoard();
     openDialog('leaderboard');
-    loadPersonas();
+    loadBoard();
   }
 
-  const past = { id: null };
-  function drawHistory(persona, history, note) {
-    const view = state;
-    $('history-title').textContent = persona.name;
-    $('history-about').textContent = `${personaSummary(view, persona)}${persona.created_at ? ` · saved ${when(persona.created_at)}` : ''}`;
-    const matches = Number(persona.matches) || 0;
+  const past = { key: null };
+  function drawTrend(entry, trend, note) {
+    $('history-title').textContent = entry.name;
+    const kind = String(entry.key ?? '');
+    const type = state ? typeOf(state, kind.split(':')[0]) : null;
+    $('history-about').textContent = kind === 'human'
+      ? 'Your own results at this table, game by game.'
+      : type && !type.models ? 'Every bot that played in this style, rated together as one player.' : 'Every seat this player and model took, in any style, rated together as one player.';
+    const matches = Number(entry.matches) || 0;
     fill($('history-facts'), [
-      factTile('Rank', finite(persona.rank) ? ordinal(Number(persona.rank)) : '–', roster.list.length ? `of ${roster.list.length} ${roster.list.length === 1 ? 'persona' : 'personas'}` : ''),
-      factTile('Skill', skill(persona.rating)),
-      factTile('Matches', String(matches), matches && finite(persona.match_wins) ? `${persona.match_wins} won` : ''),
-      factTile('Hands', dash(persona.hands, chips)),
-      factTile('Chips won', finite(persona.net_chips) ? signed(Number(persona.net_chips)) : '–', finite(persona.bb_per_100) ? `${perHundred(persona.bb_per_100)} big blinds per 100 hands` : ''),
-      factTile('Avg reasoning', finite(persona.avg_think_ms) ? took(persona.avg_think_ms) : '–', persona.last_played_at ? `Last played ${when(persona.last_played_at)}` : '')
+      factTile('Rank', finite(entry.rank) ? ordinal(Number(entry.rank)) : '–', ranking.list.length ? `of ${ranking.list.length}` : ''),
+      factTile('Rating', skill(entry.rating)),
+      factTile('Matches', String(matches), matches && finite(entry.match_wins) ? `${entry.match_wins} won` : ''),
+      factTile('Hands', dash(entry.hands, chips)),
+      factTile('Chips won', finite(entry.net_chips) ? signed(Number(entry.net_chips)) : '–', finite(entry.bb_per_100) ? `${perHundred(entry.bb_per_100)} big blinds per 100 hands` : ''),
+      factTile('Avg reasoning', finite(entry.avg_think_ms) ? took(entry.avg_think_ms) : '–', entry.last_played_at ? `Last played ${when(entry.last_played_at)}` : '')
     ]);
-    const lines = Array.isArray(history) ? history : [];
+    const lines = Array.isArray(trend) ? trend : [];
     if (lines.length) {
       const head = el('thead');
       const top = el('tr');
-      top.append(headCell('Date', { left: true }), headCell('Hands'), headCell('Place', { left: true }), headCell('Opponents', { left: true }), headCell('Chips'), headCell('BB / 100'), headCell('Skill'), headCell('Ended', { left: true }));
+      top.append(headCell('Date', { left: true }), headCell('Rating'));
       head.append(top);
       const body = el('tbody');
-      for (const entry of lines) {
-        const row = el('tr', Number(entry.place) === 1 ? 'gold' : '');
-        const opponents = Array.isArray(entry.opponents) ? entry.opponents.map(String) : [];
-        const rated = finite(entry.rating_before) && finite(entry.rating_after);
-        const moved = cell(rated ? `${skill(entry.rating_before)} → ${skill(entry.rating_after)}` : '–');
-        if (rated) {
-          const change = Number(entry.rating_after) - Number(entry.rating_before);
-          moved.append(el('small', tone(Math.round(change)).trim(), signedSkill(change)));
-        }
-        row.append(
-          cell(when(entry.at), 'left'), cell(dash(entry.hands, String)),
-          cell(finite(entry.place) ? `${ordinal(Number(entry.place))}${finite(entry.of) ? ` of ${entry.of}` : ''}` : '–', 'left'),
-          cell(opponents.length ? listNames(opponents) : '–', 'left wrap'),
-          cell(finite(entry.net_chips) ? signed(Number(entry.net_chips)) : '–', tone(entry.net_chips).trim()),
-          cell(perHundred(entry.bb_per_100), tone(entry.bb_per_100).trim()), moved,
-          cell(STOP_SHORT[entry.stop_reason] || '–', 'left quiet')
-        );
+      for (const point of lines) {
+        const rated = finite(point.rating_before) && finite(point.rating_after);
+        const moved = cell(rated ? `${skill(point.rating_before)} → ${skill(point.rating_after)}` : '–');
+        if (rated) moved.append(el('small', tone(Math.round(point.rating_after - point.rating_before)).trim(), signedSkill(point.rating_after - point.rating_before)));
+        const row = el('tr');
+        row.append(cell(when(point.at), 'left'), moved);
         body.append(row);
       }
       fill($('history-table'), [head, body]);
     } else {
       fill($('history-table'), []);
     }
-    const hint = note || (Array.isArray(history) && !lines.length ? 'No finished game yet. The log gets one line for every game this persona plays.' : '');
+    const hint = note || (Array.isArray(trend) && !lines.length ? 'No finished game yet.' : '');
     $('history-hint').hidden = !hint;
     $('history-hint').textContent = hint;
   }
 
-  async function openHistory(id) {
-    const persona = personaOf(id);
-    if (!persona || !state) return;
-    past.id = id;
-    drawHistory(persona, null, 'Reading the history log.');
+  async function openTrend(key) {
+    const entry = ranking.list.find(candidate => candidate.key === key);
+    if (!entry || !state) return;
+    past.key = key;
+    drawTrend(entry, null, 'Reading the rating trend.');
     openDialog('history');
     try {
-      const { ok, payload } = await request('GET', `/personas/${encodeURIComponent(id)}`);
-      if (past.id !== id) return;
-      if (!ok || !payload.persona) throw new Error(payload.error || 'The server did not return this persona.');
-      drawHistory({ ...persona, ...payload.persona, id: persona.id, name: String(payload.persona.name ?? persona.name), rank: finite(payload.persona.rank) ? Number(payload.persona.rank) : persona.rank }, Array.isArray(payload.persona.history) ? payload.persona.history : [], null);
+      const { ok, payload } = await request('GET', `/leaderboard?key=${encodeURIComponent(key)}`);
+      if (past.key !== key) return;
+      if (!ok || !payload.player) throw new Error(payload.error || 'The server did not return this player.');
+      drawTrend({ ...entry, ...payload.player, key, name: String(payload.player.name ?? entry.name), rank: finite(payload.player.rank) ? Number(payload.player.rank) : entry.rank }, Array.isArray(payload.player.trend) ? payload.player.trend : [], null);
     } catch (error) {
-      if (past.id === id) drawHistory(persona, null, error instanceof TypeError ? LOST_CONTACT : String(error.message || error));
+      if (past.key === key) drawTrend(entry, null, error instanceof TypeError ? LOST_CONTACT : String(error.message || error));
     }
   }
 
@@ -3455,8 +3339,7 @@
     setup.mode = mode?.id ?? null;
     if (state.players.length) setup.count = state.players.length;
     setup.picks = mode ? state.players.map(player => player.type) : [];
-    setup.personas = mode ? state.players.map(player => (player.persona ? String(player.persona.id) : null)) : [];
-    setup.models = mode ? state.players.map(player => (player.persona ? '' : player.model || '')) : [];
+    setup.models = mode ? state.players.map(player => player.model || '') : [];
     setup.reasoning = mode ? state.players.map(player => player.reasoning !== false) : [];
     setup.styles = mode ? state.players.map(player => player.style?.id || 'balanced') : [];
     setup.notes = mode ? state.players.map(player => player.style_note || '') : [];
@@ -3470,8 +3353,6 @@
   $('deal').addEventListener('click', () => {
     if (!state || $('deal').disabled) return;
     const players = setup.picks.map((type, seat) => {
-      // A saved persona is sent by its id; the server seats it with its own model, reasoning and style.
-      if (setup.personas[seat]) return { persona: String(setup.personas[seat]) };
       if (type === 'friend') return (setup.names[seat] || '').trim() ? { type, name: setup.names[seat].trim() } : type;
       const kind = typeOf(state, type);
       const model = setup.models[seat] && kind?.models ? setup.models[seat] : null;
@@ -3537,8 +3418,20 @@
     confirmKind = 'close';
   });
 
-  for (const id of ['open-personas', 'setup-personas', 'board-personas']) $(id).addEventListener('click', openPersonas);
-  for (const id of ['open-board', 'setup-board', 'personas-board', 'summary-board']) $(id).addEventListener('click', openBoard);
+  for (const id of ['open-notebook', 'setup-notebook', 'board-notebook', 'summary-notebook']) $(id).addEventListener('click', openNotebook);
+  for (const id of ['open-board', 'setup-board', 'notebook-board', 'summary-board']) $(id).addEventListener('click', openBoard);
+  $('notebook-learn').addEventListener('click', () => {
+    if (!notebook.data) return;
+    const on = notebook.data.learning === false;
+    changeNotebook({ learning: on }, on ? 'Learning is on.' : 'Learning is off.');
+  });
+  $('notebook-clear').addEventListener('click', () => askConfirm({
+    title: 'Clear the notebook?',
+    text: 'Every lesson and every game fact is removed for good. Ratings and saved games stay. AI players start the next game with no notes.',
+    yes: 'Clear the notebook',
+    no: 'Keep it',
+    onYes: () => changeNotebook({ clear: true }, 'The notebook is empty.')
+  }));
   for (const id of ['open-games', 'setup-games', 'summary-games']) $(id).addEventListener('click', () => {
     books.list = null;
     openGames();
@@ -3553,25 +3446,6 @@
     closeDialog('summary');
     if (state) openSetup();
   });
-
-  $('pf-type').addEventListener('change', () => {
-    draft.type = $('pf-type').value;
-    draft.model = '';
-    draft.reasoning = true;
-    draft.style = 'balanced';
-    draft.note = '';
-    drawPersonaForm();
-  });
-  $('pf-name').addEventListener('input', () => {
-    $('pf-saved').textContent = '';
-    checkPersonaDraft();
-  });
-  $('pf-name').addEventListener('keydown', event => {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    createPersona();
-  });
-  $('pf-create').addEventListener('click', createPersona);
 
   setInterval(tick, 100);
   const events = new EventSource('/events');

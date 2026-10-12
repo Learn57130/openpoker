@@ -18,11 +18,12 @@ Status: alpha (0.1.1). It runs locally with Node.js and has no npm dependencies.
 | [Agent guide](AGENTS.md) | Rules for AI coding agents working in this repository |
 | [Two-player game and agent seats](docs/specs/2026-09-30-heads-up-poker.md) | The first design, the measurement method, the open-seat protocol v1 |
 | [Seats, models, clock, styles](docs/specs/2026-09-30-poker-seats-models-clock.md) | Two to six seats and side pots, model choice, the reasoning switch, playing styles, the AI players, turn timing, seat protocol v2 |
-| [Personas, leaderboard, summary, sound](docs/specs/2026-09-30-poker-personas-leaderboard.md) | Saved players with a skill rating, closing a game, the game summary, sounds |
+| [Personas, leaderboard, summary, sound](docs/specs/2026-09-30-poker-personas-leaderboard.md) | Closing a game, the game summary, sounds; its personas were replaced by the learning loop |
 | [Game history](docs/specs/2026-10-01-poker-game-history.md) | Every game, hand by hand, and what each hand may show |
 | [Friends' table](docs/specs/2026-10-01-poker-friends-table.md) | Friends on your Wi-Fi playing from their own devices |
 | [Friends from any network](docs/specs/2026-10-05-poker-tunnel.md) | A Cloudflare quick tunnel to a guest-only listener |
 | [Jev key from the start screen](docs/specs/2026-10-06-jev-key-from-the-page.md) | Adding Jev's TypeSafe key on the page, where it is kept, and what never shows it |
+| [Learning loop and model leaderboard](docs/specs/2026-10-12-learning-loop.md) | Ratings by player and model, and the shared notebook AI players learn from |
 
 ## Quick start
 
@@ -64,6 +65,15 @@ To type `openpoker` anywhere instead, run `npm link` once in the folder: `openpo
 
 The AI players run the command-line tools already signed in on your computer; OpenPoker ships no AI tools, keys or accounts and reads no keys for them (see [AI tools and their terms](#ai-tools-and-their-terms)). Each may answer only with one of the legal moves the code lists; anything else and the rule bot plays that move. Seat them from the start screen, or name the seats on the command line: `openpoker --web --players you,claude:sonnet,opencode,bot+tight_aggressive`.
 
+## Learning between games
+
+The table keeps two things from game to game.
+
+- **The leaderboard** rates each player and model as one player: You, each bot style, and each Jev, Claude, Codex or OpenCode model ("Claude · opus"). The rating moves after every finished game, and each seat shows its rating beside its name.
+- **The notebook** is shared by every AI player. After each game, code writes down what every Claude, Codex or OpenCode seat did. After a game of five hands or more, each of those seats also writes up to three one-line lessons about its own play, which costs one extra call to its tool. Every such seat reads the newest lessons before each move, as notes it may use or ignore. Its reply is still only one legal move.
+
+Learning is on by default. Turn it off with **AI players learn** on the start screen or in the **Notebook**, where you can also read, delete or clear the lessons. Nothing shows yet that a model's notes make it play better; the leaderboard's rating, game by game, is how to find out.
+
 ## AI tools and their terms
 
 Each AI player you seat runs a tool installed on your computer, signed in with your own account, so that provider's terms, usage policies and rate limits apply to you. OpenPoker only starts the tool, sends it the game situation, and plays the one legal move it names.
@@ -71,7 +81,7 @@ Each AI player you seat runs a tool installed on your computer, signed in with y
 - **Claude and Codex.** Both document running from scripts. An API key is the clearly permitted way to run them from a program; signing in with a consumer subscription is governed by the provider's terms and may be limited or refused.
 - **OpenCode.** Its default model here, `opencode/big-pickle`, runs on OpenCode's hosted service, which may use that data to improve the model while it is free. Pick another `provider/model` to use that provider's terms instead.
 - **Jev.** Uses your own TypeSafe API key under TypeSafe's terms.
-- **What leaves your computer.** The game situation (cards you can see, the board, the bets, the clock) goes to the provider of each AI seat and may be stored or reviewed under its terms. Keep personal information out of style notes and player names.
+- **What leaves your computer.** The game situation (cards you can see, the board, the bets, the clock) and the notebook's lessons go to the provider of each AI seat and may be stored or reviewed under its terms. After a game, a seat's review also sends that seat's own cards and moves. Keep personal information out of style notes and player names.
 
 Play chips only: no real money, no prizes, no cash-out. OpenPoker must never be connected to a poker site or used for gambling.
 
@@ -86,7 +96,7 @@ See [SECURITY.md](SECURITY.md) for the details.
 
 ## Your data
 
-Saved games and personas live in `~/.openpoker/` (set `OPENPOKER_HOME`, or pass `--output-dir`, to move them). Files are private to your user (mode 0600 in 0700 folders). Saved game logs hold every player's cards and every AI reply; the history in the page shows only what the table showed.
+Saved games, the leaderboard (`poker/leaderboard.json`) and the notebook (`poker/notebook.json`) live in `~/.openpoker/` (set `OPENPOKER_HOME`, or pass `--output-dir`, to move them). Files are private to your user (mode 0600 in 0700 folders). Saved game logs hold every player's cards and every AI reply; the history in the page shows only what the table showed. Versions 0.1.x kept saved personas in `poker/personas.json`. OpenPoker no longer reads that file and never deletes it, so you can delete it by hand.
 
 ## Project layout
 
@@ -101,7 +111,8 @@ Saved games and personas live in `~/.openpoker/` (set `OPENPOKER_HOME`, or pass 
 | `src/agent-cli.mjs` | Runs the local `claude`, `codex` or `opencode` command |
 | `src/table-session.mjs`, `server.mjs`, `table.html` | The browser table: game state, local server, the page |
 | `src/tunnel.mjs` | The Cloudflare quick tunnel for `--tunnel` |
-| `src/persona-store.mjs`, `ranking.mjs`, `game-history.mjs` | Personas and ratings, the game history |
+| `src/leaderboard-store.mjs`, `ranking.mjs`, `game-history.mjs` | Ratings by player and model, the game history |
+| `src/lessons.mjs`, `notebook-store.mjs` | Game facts, lesson reviews, and the shared notebook |
 | `src/terminal.mjs`, `log.mjs` | The terminal game, the private match log |
 | `tests/` | The test suite (`npm test`) |
 | `examples/` | An example open-seat agent and a sample Jev request |

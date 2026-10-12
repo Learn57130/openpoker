@@ -79,14 +79,15 @@ function run(binary, args, { input, cwd, timeoutMs, spawnFn, signal, env }) {
  * is read or stored by this project. With `reasoning: false` the tool is asked to answer without thinking
  * first (Claude: a zero thinking budget; Codex: low reasoning effort; OpenCode: the `minimal` variant).
  */
-export function createAgentCliAsk({ kind, model, reasoning = true, timeoutMs = 90_000, spawnFn = spawn } = {}) {
+// `systemPrompt` replaces the move prompt, for a call that is not a move (a review of a finished game).
+export function createAgentCliAsk({ kind, model, reasoning = true, timeoutMs = 90_000, spawnFn = spawn, systemPrompt = SYSTEM_PROMPT } = {}) {
   const cli = AGENT_CLIS[kind];
   if (!cli) throw new TypeError(`Unknown agent CLI: ${kind}`);
   let workDir = null;
   return async function ask(prompt, { signal } = {}) {
     workDir ||= await fs.mkdtemp(path.join(os.tmpdir(), `jev-poker-${kind}-`));
     if (kind === 'claude') {
-      const args = ['-p', '--output-format', 'json', '--tools', '', '--strict-mcp-config', '--no-session-persistence', '--disable-slash-commands', '--system-prompt', SYSTEM_PROMPT];
+      const args = ['-p', '--output-format', 'json', '--tools', '', '--strict-mcp-config', '--no-session-persistence', '--disable-slash-commands', '--system-prompt', systemPrompt];
       if (model) args.push('--model', model);
       // Reasoning off: Claude Code answers directly when its thinking budget is zero.
       const env = reasoning ? undefined : { ...process.env, MAX_THINKING_TOKENS: '0' };
@@ -106,7 +107,7 @@ export function createAgentCliAsk({ kind, model, reasoning = true, timeoutMs = 9
       const args = ['run', '--pure', '--dir', workDir, '--agent', 'plan'];
       if (model) args.push('-m', model);
       if (!reasoning) args.push('--variant', 'minimal');
-      args.push(`${SYSTEM_PROMPT}\n\n${prompt}`);
+      args.push(`${systemPrompt}\n\n${prompt}`);
       const { status, stdout, stderr } = await run(cli.binary, args, { cwd: workDir, timeoutMs, spawnFn, signal });
       const answer = stripAnsi(stdout).trim();
       if (status !== 0 || !answer) {
@@ -120,7 +121,7 @@ export function createAgentCliAsk({ kind, model, reasoning = true, timeoutMs = 9
     if (model) args.push('-m', model);
     // Reasoning off: Codex has no zero setting, so ask for its lowest documented effort.
     if (!reasoning) args.push('-c', 'model_reasoning_effort="low"');
-    args.push(`${SYSTEM_PROMPT}\n\n${prompt}`);
+    args.push(`${systemPrompt}\n\n${prompt}`);
     const { status, stdout, stderr } = await run(cli.binary, args, { cwd: workDir, timeoutMs, spawnFn, signal });
     const answer = await fs.readFile(outputFile, 'utf8').catch(() => '');
     await fs.unlink(outputFile).catch(() => {});

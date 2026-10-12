@@ -30,7 +30,7 @@ The friends' spec planned this step "behind a sign-in (OAuth)". This version shi
 ## Acceptance criteria
 
 - Given `--tunnel`, when cloudflared connects to the table, then it reaches a separate listener on `127.0.0.1` that treats every request as a guest's, whatever address it comes from; `cloudflared` is never pointed at the host's port.
-- Given the guest listener, when anything asks for a host route (`/state`, `/new`, `/close`, `/personas`, `/games`, `/learner`, `/invites`, `/seats/…`, `/action`, `/next`), then it is refused, including a request from this computer.
+- Given the guest listener, when anything asks for a host route (`/state`, `/new`, `/close`, `/leaderboard`, `/notebook`, `/games`, `/learner`, `/invites`, `/seats/…`, `/action`, `/next`), then it is refused, including a request from this computer.
 - Given the guest listener, when a request names any host other than the tunnel's own hostname, or arrives before that hostname is known, then it is refused (403); a write whose `Origin` is not `https://<that hostname>` is refused too.
 - Given a friend's link through the tunnel, when the friend opens it, then their seat plays exactly as on the home network: their own cards, showdown cards, their moves on their own clock, a wrong key refused (401).
 - Given the tunnel holds back the event stream, when the friend's page gets no first notice within 4 seconds, then it closes the stream and reads `/guest/state` every 1.5 seconds, without showing "lost contact". On this computer and on the home network the first notice arrives at once and the page never polls.

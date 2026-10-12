@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import test from 'node:test';
-import { createAgentCliAsk } from '../src/agent-cli.mjs';
+import { createAgentCliAsk, SYSTEM_PROMPT } from '../src/agent-cli.mjs';
+import { REVIEW_SYSTEM_PROMPT } from '../src/lessons.mjs';
 import { createRulePlayer } from '../src/players.mjs';
 import { createTable } from '../src/table-session.mjs';
 
@@ -50,6 +51,28 @@ test('reasoning off asks Codex for low effort and only then', async () => {
   assert.equal(args[args.indexOf('-c') + 1], 'model_reasoning_effort="low"');
   assert.equal(args.at(-1).endsWith('pick'), true, 'the prompt stays the last argument');
   for (const call of cli.calls) await fs.rm(call.options.cwd, { recursive: true, force: true });
+});
+
+test('a review of a finished game replaces the move prompt with its own, for every command-line tool', async () => {
+  const fs = await import('node:fs/promises');
+  const claude = fakeCli(() => ({ stdout: JSON.stringify({ is_error: false, result: 'Fold more.', modelUsage: {} }) }));
+  await createAgentCliAsk({ kind: 'claude', spawnFn: claude.spawnFn })('pick');
+  await createAgentCliAsk({ kind: 'claude', spawnFn: claude.spawnFn, systemPrompt: REVIEW_SYSTEM_PROMPT })('review');
+  const flag = args => args[args.indexOf('--system-prompt') + 1];
+  assert.deepEqual([flag(claude.calls[0].args), flag(claude.calls[1].args)], [SYSTEM_PROMPT, REVIEW_SYSTEM_PROMPT]);
+  assert.equal(claude.calls[1].args[claude.calls[1].args.indexOf('--tools') + 1], '', 'a review runs with no tools too');
+  const codex = fakeCli(async ({ args }) => {
+    await fs.writeFile(args[args.indexOf('-o') + 1], 'Fold more.\n');
+    return { status: 0 };
+  });
+  await createAgentCliAsk({ kind: 'codex', spawnFn: codex.spawnFn, systemPrompt: REVIEW_SYSTEM_PROMPT })('review');
+  assert.equal(codex.calls[0].args.at(-1), `${REVIEW_SYSTEM_PROMPT}\n\nreview`);
+  assert.equal(codex.calls[0].args[codex.calls[0].args.indexOf('--sandbox') + 1], 'read-only');
+  const opencode = fakeCli(() => ({ stdout: 'Fold more.' }));
+  await createAgentCliAsk({ kind: 'opencode', spawnFn: opencode.spawnFn, systemPrompt: REVIEW_SYSTEM_PROMPT })('review');
+  assert.equal(opencode.calls[0].args.at(-1), `${REVIEW_SYSTEM_PROMPT}\n\nreview`);
+  assert.equal(opencode.calls[0].args[opencode.calls[0].args.indexOf('--agent') + 1], 'plan');
+  for (const call of [...claude.calls, ...codex.calls, ...opencode.calls]) await fs.rm(call.options.cwd, { recursive: true, force: true });
 });
 
 test('the table takes a reasoning switch only for seats that have one and passes it to the player', async () => {

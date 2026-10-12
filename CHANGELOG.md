@@ -4,6 +4,9 @@ Releases are tagged in Git. Changes after the latest tag go under Unreleased.
 
 ## Unreleased
 
+- **Breaking:** saved personas are gone: the Personas button, picking a persona for a seat, and the `/personas` routes. Their ratings and history logs are not carried over. Saved games stay in the History. The old `~/.openpoker/poker/personas.json` is no longer read and is never deleted; delete it by hand if you like.
+- The leaderboard now rates each player and model as one player: You, each bot style, and each Jev, Claude, Codex or OpenCode model. Every seat shows its rating beside its name, the game summary shows each rating before and after, and the leaderboard shows each one's rating game by game.
+- AI players learn between games. After each game, code records what every Claude, Codex or OpenCode seat did. After a game of five hands or more, each of those seats writes up to three one-line lessons about its own play, for one notebook shared by every model. Every such seat reads the newest lessons before each move, as notes, and still answers with one legal move. It is on by default: turn it off with **AI players learn** on the start screen or in the new **Notebook**, which also shows, deletes and clears lessons. Each review is one extra call to that seat's tool.
 - Seat plates no longer spill past their box: a seat's playing style sits on its own line under the chips and reasoning time, and a long one is cut short with an ellipsis.
 
 ## v0.1.1 — 2026-10-06

@@ -1,16 +1,19 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import path from 'node:path';
 import { secureRandom, seededRandom } from './cards.mjs';
 import { describeSituation } from './describe.mjs';
 import { MAX_SEATS, MIN_SEATS } from './engine.mjs';
 import { evaluateHand } from './evaluate.mjs';
 import { gameDetail, gameSummary } from './game-history.mjs';
 import { MATCH_LIMITS, playMatch } from './match.mjs';
-import { cleanPersonaName } from './persona-store.mjs';
+import { gameFacts, LESSON_LIMITS, playerKey, playerKeyName, reviewPrompt } from './lessons.mjs';
 import { cleanStyleNote, DEFAULT_STYLE, styleById, STYLES } from './styles.mjs';
 
 export const AGENT_SEAT_SCHEMA = 'jev/poker-seat/v2';
 const MAX_NOTE_LENGTH = 200;
 const MAX_WARNINGS = 3;
+const FRIEND_NAME_LENGTH = 24;
+const FRIEND_NAME_PATTERN = /^[\p{L}\p{N}][\p{L}\p{N} ._'-]*$/u;
 // Starts with a letter or digit, so a value can never be read as a command-line option.
 const MODEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,63}$/;
 // Players that answer at once; the table holds their action on screen briefly so it can be followed.
@@ -65,12 +68,18 @@ function rotateSeats(view, offset) {
 // A friend's name as the owner typed it, or null for the default "Friend".
 function cleanFriendName(raw) {
   if (raw === undefined || raw === null || raw === '') return null;
-  try {
-    return cleanPersonaName(raw);
-  } catch (error) {
-    throw tableError(error.message.replace('A persona name', 'A friend\'s name').replace('A persona needs a name', 'A friend\'s name must be text'));
+  if (typeof raw !== 'string') throw tableError('A friend\'s name must be text');
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(raw)) throw tableError('A friend\'s name is one line of text');
+  const text = raw.trim().replace(/\s+/g, ' ');
+  if (!text || text.length > FRIEND_NAME_LENGTH || !FRIEND_NAME_PATTERN.test(text)) {
+    throw tableError(`A friend's name is 1 to ${FRIEND_NAME_LENGTH} letters, digits, spaces, dots, dashes, underscores or apostrophes, starting with a letter or digit`);
   }
+  return text;
 }
+
+// The text of a reply from an ask function, which returns either a string or `{ text, model }`.
+const replyText = reply => (typeof reply === 'object' && reply !== null ? reply.text : reply);
 
 function decisionRecap(entries) {
   return entries.map(({ street, label, think_ms: thinkMs, meta }) => ({
@@ -147,7 +156,12 @@ export function createTable({
   seed,
   botDelayMs = 650,
   turnLimitMs = 30_000,
-  personaStore = null,
+  // Ratings by player key, and the notebook AI players learn from. Either may be left out.
+  leaderboardStore = null,
+  notebookStore = null,
+  // `createReviewAsk(type, { model, reasoning })` returns an ask function for a review of a finished game.
+  createReviewAsk = null,
+  reviewTimeoutMs = LESSON_LIMITS.reviewMs,
   gameHistory = null,
   learnerBoard = null,
   onMatchEnd = async () => null
@@ -159,6 +173,11 @@ export function createTable({
   let gameIndex = 0;
   let current = null;
   let lastTurnLimit = turnLimitMs;
+  // The lessons quoted in AI seats' prompts. Every notebook change goes through this table, which refreshes them.
+  let lessons = [];
+  async function refreshLessons() {
+    lessons = notebookStore ? await notebookStore.promptLessons() : [];
+  }
   // One secret key per seat for friends' links. A seat keeps its key while the same friend sits there
   // ("Deal again" needs no new link) and gets a new one when anyone else does, so an old link opens nothing.
   const newSeatKey = () => randomBytes(24).toString('base64url');
@@ -218,29 +237,6 @@ export function createTable({
     return specs.map((spec, seat) => validateSeat(spec, seat));
   }
 
-  // A seat written as `{ persona: id }` is replaced by that saved persona's own seat.
-  async function resolvePersonas(specs) {
-    if (!Array.isArray(specs)) return { specs, personas: [] };
-    const personas = [];
-    const resolved = [];
-    for (const [seat, spec] of specs.entries()) {
-      const id = spec && typeof spec === 'object' ? spec.persona : undefined;
-      if (id === undefined || id === null) {
-        personas.push(null);
-        resolved.push(spec);
-        continue;
-      }
-      if (!personaStore) throw tableError('Personas are not enabled on this table');
-      if (typeof id !== 'string') throw tableError('persona must be a persona id');
-      if (personas.some(other => other?.id === id)) throw tableError('The same persona cannot sit in two seats');
-      const persona = await personaStore.get(id);
-      if (persona.type === 'human' && seat !== 0) throw tableError('A human persona sits in the bottom seat');
-      personas.push({ id: persona.id, name: persona.name, rating: persona.rating });
-      resolved.push({ type: persona.type, model: persona.model, reasoning: persona.reasoning, style: persona.style, style_note: persona.style_note });
-    }
-    return { specs: resolved, personas };
-  }
-
   function validateTurnLimit(value) {
     if (!Number.isSafeInteger(value) || value < 0 || value > MATCH_LIMITS.maxDecisionTimeoutMs) {
       throw tableError(`turn_limit_ms must be 0 (no limit) to ${MATCH_LIMITS.maxDecisionTimeoutMs}`);
@@ -249,21 +245,18 @@ export function createTable({
   }
 
   function seatNames(types) {
-    // A saved persona plays under its own name, which the store keeps unique.
-    const taken = new Set(types.filter(type => type.persona).map(type => type.persona.name));
-    const labels = types.map(type => (type.persona ? null : type.id === 'friend' ? (type.friendName ?? type.name) : `${type.name}${type.model ? ` · ${type.model}` : ''}${type.reasoning === false ? ' · fast' : ''}`));
+    const labels = types.map(type => (type.id === 'friend' ? (type.friendName ?? type.name) : `${type.name}${type.model ? ` · ${type.model}` : ''}${type.reasoning === false ? ' · fast' : ''}`));
     const seen = new Map();
     return labels.map((label, seat) => {
-      if (label === null) return types[seat].persona.name;
-      if (seat === 0 && types[0].id === 'human' && !taken.has('You')) return 'You';
-      // Seats that would otherwise share a name, with each other or with a persona, are numbered.
-      if (labels.filter(other => other === label).length === 1 && !taken.has(label)) return label;
+      if (seat === 0 && types[0].id === 'human') return 'You';
+      // Seats that would otherwise share a name are numbered.
+      if (labels.filter(other => other === label).length === 1) return label;
       seen.set(label, (seen.get(label) || 0) + 1);
       return `${label} ${seen.get(label)}`;
     });
   }
 
-  function startGame(types, builtPlayers, gameSeed, turnLimit) {
+  function startGame(types, builtPlayers, gameSeed, turnLimit, { ratings = null, learning = false } = {}) {
     const count = types.length;
     const seats = types.map((_, seat) => seat);
     const spectator = types[0].id !== 'human';
@@ -273,7 +266,7 @@ export function createTable({
       seed: gameSeed,
       spectator,
       turn_limit_ms: turnLimit,
-      players: types.map((type, seat) => ({ seat, type: type.id, name: names[seat], persona: type.persona ? { ...type.persona } : null, model: type.model, reasoning: type.reasoning, style: type.style ? { id: type.style.id, name: type.style.name } : null, style_note: type.styleNote, think: { count: 0, total_ms: 0, mean_ms: null, max_ms: null, last_ms: null } })),
+      players: types.map((type, seat) => ({ seat, type: type.id, name: names[seat], key: playerKey(type), rating: ratings?.[seat] ?? null, learns: Boolean(type.lessons && learning), model: type.model, reasoning: type.reasoning, style: type.style ? { id: type.style.id, name: type.style.name } : null, style_note: type.styleNote, think: { count: 0, total_ms: 0, mean_ms: null, max_ms: null, last_ms: null } })),
       hand: null,
       totals: { hands_played: 0, net: seats.map(() => 0) },
       warnings: [],
@@ -520,23 +513,64 @@ export function createTable({
       changed();
     }
 
+    // One review call for a seat that learns. It never delays the summary, and a failure changes nothing but its status.
+    async function reviewSeat(seat, gameId, match) {
+      const entry = state.match.reviews.find(review => review.seat === seat);
+      const controller = new AbortController();
+      let timer;
+      try {
+        const ask = createReviewAsk(types[seat].id, { model: types[seat].model, reasoning: types[seat].reasoning !== false });
+        const prompt = reviewPrompt({ match, seat, facts: gameFacts(match, seat, bigBlind) });
+        const timeout = new Promise((_, reject) => {
+          timer = setTimeout(() => {
+            controller.abort();
+            reject(Object.assign(new Error('The review took too long'), { code: 'REVIEW_TIMEOUT' }));
+          }, reviewTimeoutMs);
+        });
+        const reply = await Promise.race([ask(prompt, { signal: controller.signal }), timeout]);
+        const added = await notebookStore.addLessons(String(replyText(reply) ?? ''), { by: playerKey(types[seat]), game: gameId });
+        entry.status = 'done';
+        entry.added = added.length;
+        await refreshLessons();
+      } catch {
+        entry.status = 'failed';
+      } finally {
+        clearTimeout(timer);
+        changed();
+      }
+    }
+
+    game.reviewed = Promise.resolve();
     game.finished = playMatch({ players, hands, stack, smallBlind, bigBlind, decisionTimeoutMs: turnLimit, random: seed === undefined ? secureRandom() : seededRandom(gameSeed), onEvent })
       .then(async match => {
         const saved = await onMatchEnd(match, { players: types.map(type => type.id), seats: types.map(type => ({ type: type.id, model: type.model, reasoning: type.reasoning, style: type.style?.id ?? null, style_note: type.styleNote })), seed: gameSeed });
         const most = Math.max(...match.final_stacks);
         const leaders = match.final_stacks.filter(chips => chips === most).length;
-        // Every finished match with at least one hand moves the ratings of the personas who played it.
+        const gameId = saved?.json ? path.basename(saved.json, '.json') : null;
+        // Every finished match with at least one hand moves the rating of each seat's player key.
         let ratings = null;
-        if (personaStore && match.hands_played > 0 && types.some(type => type.persona)) {
-          const changes = await personaStore.recordMatch({
+        if (leaderboardStore && match.hands_played > 0) {
+          const changes = await leaderboardStore.recordMatch({
+            game: gameId,
             hands: match.hands_played,
             big_blind: bigBlind,
-            stop_reason: game.closed && match.stop_reason === 'player_quit' ? 'closed' : match.stop_reason,
-            seats: match.players.map((player, seat) => ({ persona_id: types[seat].persona?.id ?? null, name: names[seat], net_chips: player.net_chips, decisions: player.decision_sources.decisions, think_ms_total: player.think_ms_total }))
+            seats: match.players.map((player, seat) => ({ key: playerKey(types[seat]), name: playerKeyName(types[seat]), net_chips: player.net_chips, decisions: player.decision_sources.decisions, think_ms_total: player.think_ms_total }))
           });
-          ratings = changes.map((change, seat) => ({ seat, ...change })).filter(change => change.persona_id);
-          for (const change of ratings) state.players[change.seat].persona.rating = change.after;
+          ratings = changes.map((change, seat) => ({ seat, ...change })).filter(change => change.key);
+          for (const change of ratings) state.players[change.seat].rating = change.after;
         }
+        // Seats that learn: measured facts now, and a review of their own play once the summary is up.
+        // The switch is read again here, so turning it off during a game keeps that game out of the notebook.
+        const learningNow = notebookStore && match.hands_played > 0 ? (await notebookStore.read()).learning : false;
+        const learners = learningNow ? seats.filter(seat => state.players[seat].learns) : [];
+        if (learners.length) {
+          await notebookStore.addFacts(learners.map(seat => {
+            const rating = ratings?.find(change => change.seat === seat);
+            const facts = gameFacts(match, seat, bigBlind);
+            return { game: gameId, player: playerKey(types[seat]), hands: match.hands_played, rating_before: rating?.before ?? null, rating_after: rating?.after ?? null, bb_per_100: facts.bb_per_100, facts };
+          }));
+        }
+        const reviewers = createReviewAsk && match.hands_played >= LESSON_LIMITS.minHands ? learners : [];
         state.match = {
           stop_reason: game.closed && match.stop_reason === 'player_quit' ? 'closed' : match.stop_reason,
           hands_played: match.hands_played,
@@ -546,11 +580,13 @@ export function createTable({
           winner_seat: match.hands_played && leaders === 1 ? match.final_stacks.indexOf(most) : null,
           log_path: saved?.json ?? null,
           summary: matchSummary(match, names),
-          ratings
+          ratings,
+          reviews: reviewers.length ? reviewers.map(seat => ({ seat, status: 'writing', added: 0 })) : null
         };
         state.status = 'match_over';
         changed();
         wakeSeatWaiters();
+        game.reviewed = Promise.all(reviewers.map(seat => reviewSeat(seat, gameId, match)));
       })
       .catch(error => {
         state.status = 'error';
@@ -619,19 +655,21 @@ export function createTable({
   }
 
   return {
-    async newGame({ players = current?.state.players.map(player => (player.persona ? { persona: player.persona.id } : { type: player.type, model: player.model, reasoning: player.reasoning, style: player.style?.id ?? null, style_note: player.style_note })) ?? defaultPlayers, turnLimitMs: limit = lastTurnLimit } = {}) {
-      const resolved = await resolvePersonas(players);
-      const types = validatePlayers(resolved.specs).map((type, seat) => ({ ...type, persona: resolved.personas[seat] }));
+    async newGame({ players = current?.state.players.map(player => ({ type: player.type, model: player.model, reasoning: player.reasoning, style: player.style?.id ?? null, style_note: player.style_note })) ?? defaultPlayers, turnLimitMs: limit = lastTurnLimit } = {}) {
+      const types = validatePlayers(players);
       const turnLimit = validateTurnLimit(limit);
       const gameSeed = seed === undefined ? Math.floor(Math.random() * 2 ** 31) + 1 : seed + gameIndex;
+      const learning = notebookStore ? (await notebookStore.read()).learning : false;
+      await refreshLessons();
+      const ratings = leaderboardStore ? await leaderboardStore.ratings(types.map(playerKey)) : null;
       const built = await Promise.all(types.map((type, seat) => (
-        type.id === 'human' || type.id === 'agent' || type.id === 'friend' ? null : createPlayer(type.id, { hands, seed: gameSeed, seat, model: type.model, reasoning: type.reasoning, style: type.style?.id ?? DEFAULT_STYLE, styleNote: type.styleNote, seats: types.length })
+        type.id === 'human' || type.id === 'agent' || type.id === 'friend' ? null : createPlayer(type.id, { hands, seed: gameSeed, seat, model: type.model, reasoning: type.reasoning, style: type.style?.id ?? DEFAULT_STYLE, styleNote: type.styleNote, seats: types.length, ...(type.lessons && learning ? { lessons: () => lessons } : {}) })
       )));
       abortCurrent();
       assignSeatKeys(types);
       gameIndex += 1;
       lastTurnLimit = turnLimit;
-      current = startGame(types, built, gameSeed, turnLimit);
+      current = startGame(types, built, gameSeed, turnLimit, { ratings: ratings && types.map((type, seat) => (playerKey(type) ? ratings[seat] : null)), learning });
       // A friend's view numbers games with this instead of the seed, which would let the deck be rebuilt.
       current.index = gameIndex;
       notify();
@@ -670,24 +708,38 @@ export function createTable({
       return this.snapshot();
     },
 
-    async personas() {
-      if (!personaStore) throw tableError('Personas are not enabled on this table', 'PERSONAS_DISABLED');
-      return await personaStore.list();
+    /** Every rated player key, best first. */
+    async leaderboard() {
+      if (!leaderboardStore) throw tableError('The leaderboard is not enabled on this table', 'LEADERBOARD_DISABLED');
+      return await leaderboardStore.list();
     },
 
-    async persona(id) {
-      if (!personaStore) throw tableError('Personas are not enabled on this table', 'PERSONAS_DISABLED');
-      return await personaStore.get(String(id));
+    /** One player key with its rating trend. */
+    async leaderboardEntry(key) {
+      if (!leaderboardStore) throw tableError('The leaderboard is not enabled on this table', 'LEADERBOARD_DISABLED');
+      return await leaderboardStore.get(String(key));
     },
 
-    /** Saves a named player. The seat it describes is checked exactly as a seat in a new game is. */
-    async createPersona({ name, type, model = null, reasoning = null, style = null, style_note: styleNote = null } = {}) {
-      if (!personaStore) throw tableError('Personas are not enabled on this table', 'PERSONAS_DISABLED');
-      const seat = validateSeat({ type, model, reasoning, style, style_note: styleNote }, type === 'human' ? 0 : 1);
-      return await personaStore.create({
-        name,
-        seat: { type: seat.id, model: seat.model, reasoning: seat.reasoning, style: seat.style && seat.style.id !== DEFAULT_STYLE ? seat.style.id : null, style_note: seat.styleNote }
-      });
+    /** The shared notebook: the learning switch, the lessons and the game facts, newest first. */
+    async notebook() {
+      if (!notebookStore) throw tableError('The notebook is not enabled on this table', 'NOTEBOOK_DISABLED');
+      return await notebookStore.read();
+    },
+
+    /** One change to the notebook: `{ learning: true|false }`, `{ clear: true }` or `{ remove_lesson: id }`. */
+    async changeNotebook(change = {}) {
+      if (!notebookStore) throw tableError('The notebook is not enabled on this table', 'NOTEBOOK_DISABLED');
+      if (change.learning !== undefined) await notebookStore.setLearning(change.learning);
+      else if (change.clear === true) await notebookStore.clear();
+      else if (typeof change.remove_lesson === 'string') await notebookStore.removeLesson(change.remove_lesson);
+      else throw tableError('A notebook change is { learning }, { clear: true } or { remove_lesson }');
+      await refreshLessons();
+      return await notebookStore.read();
+    },
+
+    /** Resolves when the reviews after the current match have finished. */
+    reviewed() {
+      return current?.reviewed ?? Promise.resolve();
     },
 
     /** Saved games, newest first, and the game being played now while it runs. */
@@ -739,7 +791,10 @@ export function createTable({
       const game = current;
       if (!game || game.state.players[seat]?.type !== 'friend') throw tableError('This link is not for a seat in the current game', 'SEAT_NOT_FRIEND');
       const view = this.snapshot();
-      delete view.personas_enabled;
+      // The notebook and the learning switch are the host's alone.
+      delete view.learning_enabled;
+      view.players = view.players.map(({ learns, ...player }) => player);
+      if (view.match) delete view.match.reviews;
       // On a friend's page "You" is the friend; the person running the table is the Host.
       const host = name => (name === 'You' ? 'Host' : name);
       view.players = view.players.map(player => (player.type === 'human' ? { ...player, name: host(player.name) } : player));
@@ -769,7 +824,7 @@ export function createTable({
       view.warnings = [];
       if (view.error) view.error = { code: view.error.code, message: 'The game stopped on an error at the host\'s computer.' };
       const seated = new Set(view.players.map(player => player.type));
-      view.player_types = view.player_types.filter(type => seated.has(type.id)).map(({ id, name, category }) => ({ id, name, category, available: true, unavailable_reason: null, models: null, reasoning: false, styles: false, style_notes: false }));
+      view.player_types = view.player_types.filter(type => seated.has(type.id)).map(({ id, name, category }) => ({ id, name, category, available: true, unavailable_reason: null, models: null, reasoning: false, styles: false, style_notes: false, lessons: false }));
       view.learner_enabled = false;
       if (view.match) delete view.match.log_path;
       // With no seat for the host, friends deal each next hand themselves.
@@ -812,12 +867,6 @@ export function createTable({
       return await learnerBoard.get(name);
     },
 
-    async removePersona(id) {
-      if (!personaStore) throw tableError('Personas are not enabled on this table', 'PERSONAS_DISABLED');
-      if (running(current) && current.state.players.some(player => player.persona?.id === id)) throw tableError('That persona is playing in the current game', 'PERSONA_IN_USE');
-      return await personaStore.remove(String(id));
-    },
-
     // A player type became available or unavailable (a Jev key added or removed): every page redraws.
     playerTypesChanged() {
       notify();
@@ -828,12 +877,13 @@ export function createTable({
       return {
         version,
         settings: { hands, stack, small_blind: smallBlind, big_blind: bigBlind, turn_limit_ms: gameLimit, max_seats: MAX_SEATS },
-        personas_enabled: Boolean(personaStore),
+        leaderboard_enabled: Boolean(leaderboardStore),
+        learning_enabled: Boolean(notebookStore),
         history_enabled: Boolean(gameHistory),
         learner_enabled: Boolean(learnerBoard),
         brand,
         styles: STYLES.map(({ id, name, description }) => ({ id, name, description })),
-        player_types: playerTypes.map(({ id, name, category, available, unavailable_reason: reason, models, reasoning, styles, style_notes: notes, slow }) => ({ id, name, category: category ?? null, available, unavailable_reason: reason ?? null, models: models ? [...models] : null, reasoning: Boolean(reasoning), styles: Boolean(styles), style_notes: Boolean(notes), slow: Boolean(slow) })),
+        player_types: playerTypes.map(({ id, name, category, available, unavailable_reason: reason, models, reasoning, styles, style_notes: notes, lessons: learns, slow }) => ({ id, name, category: category ?? null, available, unavailable_reason: reason ?? null, models: models ? [...models] : null, reasoning: Boolean(reasoning), styles: Boolean(styles), style_notes: Boolean(notes), lessons: Boolean(learns && notebookStore), slow: Boolean(slow) })),
         ...state
       };
     },
