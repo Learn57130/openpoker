@@ -187,7 +187,9 @@ async function shutdown(table) {
 }
 
 async function playOut(table) {
-  for (let guard = 0; guard < 2000; guard += 1) {
+  // By time, not by turns: a slow machine needs more turns of the event loop for the same game.
+  const deadline = Date.now() + 15_000;
+  while (Date.now() < deadline) {
     const state = table.snapshot();
     if (state.status === 'match_over' || state.status === 'error') return state;
     if (state.status === 'hand_over') table.next();
